@@ -1,26 +1,216 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-primary-muted: var(--primary-muted);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  /* Timer specific colors */
+  --color-timer-bg: var(--timer-bg);
+  --color-timer-shadow: var(--timer-shadow);
+  --color-progress-track: var(--progress-track);
+  --color-progress-active: var(--progress-active);
+
+  /* Pomodoro state colors */
+  --color-work-session: var(--work-session);
+  --color-short-break: var(--short-break);
+  --color-long-break: var(--long-break);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.75rem;
+
+  /* Modern Pomodoro App - Light Mode */
+  /* Warm cream background for eye comfort during long sessions */
+  --background: oklch(0.98 0.01 85);
+  --foreground: oklch(0.15 0.02 15);
+
+  /* Cards with subtle warm tint */
+  --card: oklch(0.995 0.005 75);
+  --card-foreground: oklch(0.15 0.02 15);
+  --popover: oklch(0.995 0.005 75);
+  --popover-foreground: oklch(0.15 0.02 15);
+
+  /* Primary - Vibrant coral for focus and energy */
+  --primary: oklch(0.62 0.18 25);
+  --primary-foreground: oklch(0.99 0.01 85);
+  --primary-muted: oklch(0.88 0.08 25);
+
+  /* Secondary - Warm sage green for balance */
+  --secondary: oklch(0.94 0.02 130);
+  --secondary-foreground: oklch(0.25 0.03 15);
+
+  /* Muted - Soft neutral with warmth */
+  --muted: oklch(0.96 0.01 85);
+  --muted-foreground: oklch(0.45 0.02 50);
+
+  /* Accent - Deep teal for contrast and sophistication */
+  --accent: oklch(0.55 0.12 200);
+  --accent-foreground: oklch(0.99 0.01 85);
+  --accent-muted: oklch(0.82 0.06 200);
+
+  /* Success - Fresh mint green for completed sessions */
+  --success: oklch(0.7 0.13 155);
+  --success-foreground: oklch(0.99 0.01 85);
+
+  /* Destructive - Warm red that's not harsh */
+  --destructive: oklch(0.58 0.16 15);
+  --destructive-foreground: oklch(0.99 0.01 85);
+
+  /* UI elements with subtle warmth */
+  --border: oklch(0.9 0.01 85);
+  --input: oklch(0.97 0.01 85);
+  --ring: oklch(0.62 0.18 25);
+
+  /* Chart colors - Modern and vibrant */
+  --chart-1: oklch(0.62 0.18 25); /* Coral */
+  --chart-2: oklch(0.55 0.12 200); /* Teal */
+  --chart-3: oklch(0.7 0.13 155); /* Mint */
+  --chart-4: oklch(0.65 0.15 280); /* Purple */
+  --chart-5: oklch(0.72 0.14 60); /* Yellow */
+
+  /* Timer specific - Optimized for focus */
+  --timer-bg: oklch(0.999 0.003 75);
+  --timer-shadow: oklch(0.85 0.02 85);
+  --progress-track: oklch(0.92 0.015 85);
+  --progress-active: oklch(0.62 0.18 25);
+
+  /* Pomodoro states */
+  --work-session: oklch(0.62 0.18 25); /* Energizing coral */
+  --short-break: oklch(0.7 0.13 155); /* Refreshing mint */
+  --long-break: oklch(0.55 0.12 200); /* Calming teal */
+
+  /* Sidebar - Clean and minimal */
+  --sidebar: oklch(0.985 0.008 85);
+  --sidebar-foreground: oklch(0.25 0.02 15);
+  --sidebar-primary: oklch(0.62 0.18 25);
+  --sidebar-primary-foreground: oklch(0.99 0.01 85);
+  --sidebar-accent: oklch(0.96 0.01 85);
+  --sidebar-accent-foreground: oklch(0.25 0.02 15);
+  --sidebar-border: oklch(0.9 0.01 85);
+  --sidebar-ring: oklch(0.62 0.18 25);
+}
+
+.dark {
+  /* Modern Pomodoro App - Dark Mode */
+  /* Deep charcoal with subtle warmth for late-night sessions */
+  --background: oklch(0.08 0.015 15);
+  --foreground: oklch(0.95 0.01 85);
+
+  /* Cards with rich depth */
+  --card: oklch(0.12 0.02 15);
+  --card-foreground: oklch(0.95 0.01 85);
+  --popover: oklch(0.12 0.02 15);
+  --popover-foreground: oklch(0.95 0.01 85);
+
+  /* Primary - Bright coral that pops in dark mode */
+  --primary: oklch(0.68 0.2 25);
+  --primary-foreground: oklch(0.08 0.015 15);
+  --primary-muted: oklch(0.3 0.1 25);
+
+  /* Secondary - Muted sage for balance */
+  --secondary: oklch(0.2 0.03 130);
+  --secondary-foreground: oklch(0.95 0.01 85);
+
+  /* Muted - Rich warm grays */
+  --muted: oklch(0.18 0.015 30);
+  --muted-foreground: oklch(0.65 0.02 50);
+
+  /* Accent - Bright teal for high contrast */
+  --accent: oklch(0.65 0.15 200);
+  --accent-foreground: oklch(0.08 0.015 15);
+  --accent-muted: oklch(0.25 0.08 200);
+
+  /* Success - Vibrant mint that glows */
+  --success: oklch(0.75 0.15 155);
+  --success-foreground: oklch(0.08 0.015 15);
+
+  /* Destructive - Warm red for dark mode */
+  --destructive: oklch(0.62 0.18 15);
+  --destructive-foreground: oklch(0.08 0.015 15);
+
+  /* UI elements - Rich and tactile */
+  --border: oklch(0.25 0.02 30);
+  --input: oklch(0.15 0.02 30);
+  --ring: oklch(0.68 0.2 25);
+
+  /* Chart colors - Vibrant for dark backgrounds */
+  --chart-1: oklch(0.68 0.2 25); /* Bright coral */
+  --chart-2: oklch(0.65 0.15 200); /* Bright teal */
+  --chart-3: oklch(0.75 0.15 155); /* Bright mint */
+  --chart-4: oklch(0.72 0.18 280); /* Bright purple */
+  --chart-5: oklch(0.78 0.16 60); /* Bright yellow */
+
+  /* Timer specific - Optimized for dark mode focus */
+  --timer-bg: oklch(0.1 0.02 15);
+  --timer-shadow: oklch(0.05 0.01 15);
+  --progress-track: oklch(0.2 0.02 30);
+  --progress-active: oklch(0.68 0.2 25);
+
+  /* Pomodoro states - Distinct in dark mode */
+  --work-session: oklch(0.68 0.2 25); /* Energizing coral */
+  --short-break: oklch(0.75 0.15 155); /* Refreshing mint */
+  --long-break: oklch(0.65 0.15 200); /* Calming teal */
+
+  /* Sidebar - Deep and sophisticated */
+  --sidebar: oklch(0.1 0.02 15);
+  --sidebar-foreground: oklch(0.9 0.01 85);
+  --sidebar-primary: oklch(0.68 0.2 25);
+  --sidebar-primary-foreground: oklch(0.08 0.015 15);
+  --sidebar-accent: oklch(0.18 0.02 30);
+  --sidebar-accent-foreground: oklch(0.9 0.01 85);
+  --sidebar-border: oklch(0.25 0.02 30);
+  --sidebar-ring: oklch(0.68 0.2 25);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+  }
 }
