@@ -1,13 +1,11 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useStore } from "@/store/useStore";
-import { Timer, Search, Bell, Menu } from "lucide-react";
+import { Timer, Bell, Menu } from "lucide-react";
 import { ThemeToggle } from "../ThemeToggle";
 
 export const TopNavBar: React.FC = () => {
-  const { sidebarOpen, setSidebarOpen } = useStore();
+  const [navbarOpen, setNavbarOpen] = useState<boolean>(false);
 
   return (
     <div className="border-b px-6 py-4 sticky top-0 z-40 bg-background/80 backdrop-blur-md">
@@ -17,7 +15,7 @@ export const TopNavBar: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => setNavbarOpen(!navbarOpen)}
             className="lg:hidden"
           >
             <Menu className="w-6 h-6" />

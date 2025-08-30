@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -36,6 +36,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import { createClient } from "@/lib/supabase/client";
 
 // Mock data remains the same
 const weeklyData = [
@@ -112,6 +113,36 @@ const StatCard = ({
 
 export default function AnalyticsPage() {
   const [dateFilter, setDateFilter] = useState("week");
+  const [totalTime, setTotalTime] = useState(0);
+  const [totalCompletedSession, setTotalCompletedSession] = useState(0);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data, error } = await supabase
+          .from("user_stats")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error(error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          setTotalTime(data[0].total_study_time);
+          setTotalCompletedSession(data[0].total_completed_sessions);
+        }
+      }
+    };
+    fetchStats();
+  }, [supabase]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -137,14 +168,18 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Study Time"
-          value="47.2h"
+          value={
+            totalTime >= 60
+              ? `${(totalTime / 60).toFixed(1)}h`
+              : `${totalTime} min`
+          }
           subtitle="This month"
           icon={Timer}
           color="info"
         />
         <StatCard
           title="Focus Sessions"
-          value="156"
+          value={`${totalCompletedSession}`}
           subtitle="Completed"
           icon={Target}
           color="success"

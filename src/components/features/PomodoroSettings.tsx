@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,21 +18,18 @@ import {
 } from "../ui/select";
 import { Button } from "../ui/button";
 
+interface PomodoroSettingsType {
+  focusTime: number;
+  shortBreak: number;
+  longBreak: number;
+  iterations: number;
+}
+
 interface PomodoroSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: {
-    focusTime: number;
-    shortBreak: number;
-    longBreak: number;
-    iterations: number;
-  };
-  updateSettings: (settings: {
-    focusTime: number;
-    shortBreak: number;
-    longBreak: number;
-    iterations: number;
-  }) => void;
+  settings: PomodoroSettingsType;
+  updateSettings: (settings: PomodoroSettingsType) => Promise<void>;
 }
 
 export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
@@ -41,10 +38,30 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
   settings,
   updateSettings,
 }) => {
-  const [localSettings, setLocalSettings] = useState(settings);
+  const [localSettings, setLocalSettings] =
+    useState<PomodoroSettingsType>(settings);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = () => {
-    updateSettings(localSettings);
+  // Sync local state when settings prop changes
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    try {
+      await updateSettings(localSettings);
+      onClose();
+    } catch (err) {
+      console.error("Error saving settings:", err);
+      alert("Failed to save settings. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setLocalSettings(settings); // Reset to original values
     onClose();
   };
 
@@ -72,11 +89,13 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
                   focusTime: parseInt(value),
                 })
               }
+              disabled={isLoading}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="1">1 minute</SelectItem>
                 <SelectItem value="15">15 minutes</SelectItem>
                 <SelectItem value="25">25 minutes</SelectItem>
                 <SelectItem value="30">30 minutes</SelectItem>
@@ -99,6 +118,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
                   shortBreak: parseInt(value),
                 })
               }
+              disabled={isLoading}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue />
@@ -125,11 +145,13 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
                   longBreak: parseInt(value),
                 })
               }
+              disabled={isLoading}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="10">10 minutes</SelectItem>
                 <SelectItem value="15">15 minutes</SelectItem>
                 <SelectItem value="20">20 minutes</SelectItem>
                 <SelectItem value="30">30 minutes</SelectItem>
@@ -151,6 +173,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
                   iterations: parseInt(value),
                 })
               }
+              disabled={isLoading}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue />
@@ -166,9 +189,19 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button type="submit" onClick={handleSave}>
-            Save Settings
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" onClick={handleSave} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              "Save Settings"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

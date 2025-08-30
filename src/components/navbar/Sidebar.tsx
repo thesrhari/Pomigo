@@ -1,8 +1,7 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/store/useStore";
 import {
   Home,
   Timer,
@@ -23,7 +22,7 @@ const sidebarItems = [
 export const Sidebar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen } = useStore();
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   const handleNavigation = (path: string) => {
     router.push(path);
