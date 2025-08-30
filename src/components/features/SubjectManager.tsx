@@ -164,7 +164,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
         <DialogTrigger asChild>
           <Button variant="outline" className="gap-2">
             <Plus className="w-4 h-4" />
-            Manage Subjects
           </Button>
         </DialogTrigger>
         <DialogContent className="!max-w-6xl !w-[95vw] max-h-[80vh] overflow-hidden flex flex-col">

@@ -110,53 +110,62 @@ export function usePomodoroTracker({
   focusDuration,
   currentSubject,
 }: UsePomodoroTrackerProps) {
-  const lastTimeRef = useRef<number>(0);
+  // Use a ref to track the last minute that was recorded to prevent duplicate updates.
+  const lastMinuteRecordedRef = useRef<number | null>(null);
   const sessionCompletedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    const updateStats = async () => {
+    const handleStatsUpdate = async () => {
       try {
-        const user = await getUser();
-        if (!user || !currentSubject) return;
-
-        // Track study time every minute
-        if (
+        // --- Condition 1: A new minute has passed while the timer is running ---
+        const isNewMinute =
           timerRunning &&
-          timeLeft % 60 === 0 &&
-          timeLeft !== focusDuration * 60
-        ) {
-          // Only increment if a full minute has passed
-          if (lastTimeRef.current !== timeLeft) {
-            await updateUserStats(user.id, 1); // Increment global study time by 1 minute
-            await updateSubjectStats(user.id, currentSubject, 1); // Increment subject study time by 1 minute
-            lastTimeRef.current = timeLeft;
-          }
+          timeLeft % 60 === 0 && // Check if it's the start of a minute
+          timeLeft !== focusDuration * 60 && // Not the very beginning of the timer
+          lastMinuteRecordedRef.current !== timeLeft; // Ensure this minute hasn't been recorded yet
+
+        if (isNewMinute) {
+          // Fetch user and update stats ONLY when a minute has passed.
+          const user = await getUser();
+          if (!user || !currentSubject) return;
+
+          // Increment both total and subject-specific study time by 1 minute.
+          await updateUserStats(user.id, 1);
+          await updateSubjectStats(user.id, currentSubject, 1);
+          lastMinuteRecordedRef.current = timeLeft; // Mark this minute as recorded.
+          return; // Exit after handling to avoid unnecessary checks below.
         }
 
-        // Track completed session when timer reaches 0
-        if (timeLeft === 0 && !sessionCompletedRef.current && !timerRunning) {
-          await updateUserStats(user.id, 0, 1); // Increment global sessions
-          await updateSubjectStats(user.id, currentSubject, 0, 1); // Increment subject sessions
-          sessionCompletedRef.current = true;
+        // --- Condition 2: The timer has just finished ---
+        const isSessionComplete =
+          timeLeft === 0 &&
+          !timerRunning && // Ensure the timer has actually stopped
+          !sessionCompletedRef.current; // And the session hasn't already been marked as complete
+
+        if (isSessionComplete) {
+          // Fetch user and update stats ONLY when the session is complete.
+          const user = await getUser();
+          if (!user || !currentSubject) return;
+
+          // Increment session counts without changing study time.
+          await updateUserStats(user.id, 0, 1);
+          await updateSubjectStats(user.id, currentSubject, 0, 1);
+          sessionCompletedRef.current = true; // Mark session as completed to prevent duplicate updates.
+          return;
         }
 
-        // Reset session completion flag when timer is reset/restarted
-        if (timeLeft === focusDuration * 60) {
+        // --- Condition 3: The timer has been reset ---
+        const isTimerReset = timeLeft === focusDuration * 60;
+        if (isTimerReset) {
+          // Reset our tracking refs so the next session can be tracked correctly.
           sessionCompletedRef.current = false;
+          lastMinuteRecordedRef.current = null;
         }
       } catch (err) {
         console.error("PomodoroTracker error:", err);
       }
     };
 
-    updateStats();
+    handleStatsUpdate();
   }, [timeLeft, timerRunning, focusDuration, currentSubject]);
-
-  // Reset tracking when timer is reset
-  useEffect(() => {
-    if (timeLeft === focusDuration * 60) {
-      lastTimeRef.current = 0;
-      sessionCompletedRef.current = false;
-    }
-  }, [timeLeft, focusDuration]);
 }
