@@ -5,7 +5,7 @@ interface UsePomodoroTrackerProps {
   timerRunning: boolean;
   timeLeft: number;
   focusDuration: number;
-  currentSubject?: string; // Add current subject to track per-subject stats
+  currentSubject?: string;
 }
 
 const supabase = createClient();
@@ -26,6 +26,24 @@ async function getOrCreateUserStats(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .single();
+
+  if (error && error.code === "PGRST116") {
+    // No record found, create one
+    const { data: newData, error: insertError } = await supabase
+      .from("user_stats")
+      .insert([
+        {
+          user_id: userId,
+          total_study_time: 0,
+          total_completed_sessions: 0,
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    return newData;
+  }
 
   if (error) throw error;
   return data;
@@ -110,9 +128,9 @@ export function usePomodoroTracker({
   focusDuration,
   currentSubject,
 }: UsePomodoroTrackerProps) {
-  // Use a ref to track the last minute that was recorded to prevent duplicate updates.
   const lastMinuteRecordedRef = useRef<number | null>(null);
   const sessionCompletedRef = useRef<boolean>(false);
+  const wasRunningRef = useRef<boolean>(false);
 
   useEffect(() => {
     const handleStatsUpdate = async () => {
@@ -120,52 +138,74 @@ export function usePomodoroTracker({
         // --- Condition 1: A new minute has passed while the timer is running ---
         const isNewMinute =
           timerRunning &&
-          timeLeft % 60 === 0 && // Check if it's the start of a minute
-          timeLeft !== focusDuration * 60 && // Not the very beginning of the timer
-          lastMinuteRecordedRef.current !== timeLeft; // Ensure this minute hasn't been recorded yet
+          timeLeft % 60 === 0 &&
+          timeLeft !== focusDuration * 60 &&
+          timeLeft > 0 && // Make sure we're not at 0
+          lastMinuteRecordedRef.current !== timeLeft;
 
         if (isNewMinute) {
-          // Fetch user and update stats ONLY when a minute has passed.
           const user = await getUser();
           if (!user || !currentSubject) return;
 
-          // Increment both total and subject-specific study time by 1 minute.
           await updateUserStats(user.id, 1);
           await updateSubjectStats(user.id, currentSubject, 1);
-          lastMinuteRecordedRef.current = timeLeft; // Mark this minute as recorded.
-          return; // Exit after handling to avoid unnecessary checks below.
+          lastMinuteRecordedRef.current = timeLeft;
+          return;
         }
 
-        // --- Condition 2: The timer has just finished ---
+        // --- Condition 2: The timer has just finished (more reliable detection) ---
         const isSessionComplete =
           timeLeft === 0 &&
-          !timerRunning && // Ensure the timer has actually stopped
-          !sessionCompletedRef.current; // And the session hasn't already been marked as complete
+          wasRunningRef.current && // Timer was running before
+          !timerRunning && // Timer is now stopped
+          !sessionCompletedRef.current; // Session hasn't been marked complete
 
         if (isSessionComplete) {
-          // Fetch user and update stats ONLY when the session is complete.
           const user = await getUser();
-          if (!user || !currentSubject) return;
+          console.log(`👤 User:`, user?.id);
 
-          // Increment session counts without changing study time.
-          await updateUserStats(user.id, 0, 1);
-          await updateSubjectStats(user.id, currentSubject, 0, 1);
-          sessionCompletedRef.current = true; // Mark session as completed to prevent duplicate updates.
+          if (!user) {
+            console.error("❌ No user found");
+            return;
+          }
+
+          if (!currentSubject) {
+            console.error("❌ No current subject");
+            return;
+          }
+
+          // Calculate how much study time to add (full session duration)
+          const studyTimeToAdd = focusDuration;
+
+          await updateUserStats(user.id, studyTimeToAdd, 1);
+          await updateSubjectStats(user.id, currentSubject, studyTimeToAdd, 1);
+          sessionCompletedRef.current = true;
           return;
         }
 
         // --- Condition 3: The timer has been reset ---
-        const isTimerReset = timeLeft === focusDuration * 60;
+        const isTimerReset = timeLeft === focusDuration * 60 && !timerRunning;
         if (isTimerReset) {
-          // Reset our tracking refs so the next session can be tracked correctly.
           sessionCompletedRef.current = false;
           lastMinuteRecordedRef.current = null;
         }
       } catch (err) {
-        console.error("PomodoroTracker error:", err);
+        console.error("❌ PomodoroTracker error:", err);
       }
     };
 
     handleStatsUpdate();
+
+    // Update the wasRunning ref for the next render
+    wasRunningRef.current = timerRunning;
   }, [timeLeft, timerRunning, focusDuration, currentSubject]);
+
+  // Additional effect to handle component unmounting or subject changes
+  useEffect(() => {
+    return () => {
+      // Reset refs when component unmounts or subject changes
+      sessionCompletedRef.current = false;
+      lastMinuteRecordedRef.current = null;
+    };
+  }, [currentSubject]);
 }
