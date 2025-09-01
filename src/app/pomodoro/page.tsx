@@ -27,11 +27,18 @@ import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
 
-type SessionType = "focus" | "shortBreak" | "longBreak";
+type SessionType = "study" | "short_break" | "long_break";
 
 interface SessionStatus {
   type: SessionType;
   completed: boolean;
+}
+
+// For type safety with our Web Worker messages
+type WorkerCommand = "start" | "stop";
+interface WorkerMessage {
+  command: WorkerCommand;
+  ms?: number;
 }
 
 export default function PomodoroPage() {
@@ -58,20 +65,59 @@ export default function PomodoroPage() {
 
   // Cycling state
   const [currentSessionType, setCurrentSessionType] =
-    useState<SessionType>("focus");
+    useState<SessionType>("study");
   const [currentCycle, setCurrentCycle] = useState(1);
   const [completedSessions, setCompletedSessions] = useState<SessionStatus[]>(
     []
   );
 
-  // Track if timer was manually paused vs reset/stopped
+  // Ref to track if the timer was manually paused
   const isPausedRef = useRef(false);
   const previousFocusTimeRef = useRef(0);
 
-  // Check if the entire pomodoro sequence has started (any session started from initial state)
+  // --- START: WEB WORKER INTEGRATION ---
+  // Ref to hold the worker instance so it persists across re-renders
+  const workerRef = useRef<Worker | null>(null);
+
+  // Effect to initialize and clean up the worker. Runs only once on mount.
+  useEffect(() => {
+    // Create the worker instance. The path is relative to the `public` directory.
+    workerRef.current = new Worker("/timer.worker.js");
+
+    // Set up the listener for messages coming FROM the worker
+    workerRef.current.onmessage = (event: MessageEvent<{ type: string }>) => {
+      // When the worker sends a 'tick', decrement the time
+      if (event.data.type === "tick") {
+        setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+    };
+
+    // Cleanup: Terminate the worker when the component unmounts to prevent memory leaks
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []); // Empty dependency array ensures this runs only once.
+
+  // Effect to send commands TO the worker when the timer's running state changes.
+  useEffect(() => {
+    if (!workerRef.current) return;
+
+    if (timerRunning) {
+      // Tell the worker to start its interval
+      workerRef.current.postMessage({
+        command: "start",
+        ms: 1000,
+      } as WorkerMessage);
+    } else {
+      // Tell the worker to stop its interval
+      workerRef.current.postMessage({ command: "stop" } as WorkerMessage);
+    }
+  }, [timerRunning]);
+  // --- END: WEB WORKER INTEGRATION ---
+
   const isPomodoroSequenceActive =
     currentCycle > 1 ||
-    currentSessionType !== "focus" ||
+    currentSessionType !== "study" ||
     completedSessions.length > 0 ||
     timerRunning ||
     isPausedRef.current;
@@ -80,11 +126,11 @@ export default function PomodoroPage() {
   const getSessionDuration = (sessionType: SessionType): number => {
     if (!pomodoroSettings) return 25; // Default
     switch (sessionType) {
-      case "focus":
+      case "study":
         return pomodoroSettings.focusTime;
-      case "shortBreak":
+      case "short_break":
         return pomodoroSettings.shortBreak;
-      case "longBreak":
+      case "long_break":
         return pomodoroSettings.longBreak;
       default:
         return 25;
@@ -93,19 +139,19 @@ export default function PomodoroPage() {
 
   // Helper function to get next session type
   const getNextSessionType = (): SessionType => {
-    if (currentSessionType === "focus") {
+    if (currentSessionType === "study") {
       if (
         pomodoroSettings?.longBreakEnabled &&
         currentCycle % pomodoroSettings.longBreakInterval === 0
       ) {
-        return "longBreak";
+        return "long_break";
       }
-      return "shortBreak";
+      return "short_break";
     }
     if (currentCycle >= (pomodoroSettings?.iterations || 1)) {
       handleReset();
     }
-    return "focus";
+    return "study";
   };
 
   // Generate session sequence for indicators
@@ -117,9 +163,9 @@ export default function PomodoroPage() {
 
     for (let cycle = 1; cycle <= totalCycles; cycle++) {
       sequence.push({
-        type: "focus",
+        type: "study",
         completed: completedSessions.some(
-          (s, i) => i === (cycle - 1) * 2 && s.type === "focus" && s.completed
+          (s, i) => i === (cycle - 1) * 2 && s.type === "study" && s.completed
         ),
       });
 
@@ -128,11 +174,11 @@ export default function PomodoroPage() {
         cycle % pomodoroSettings.longBreakInterval === 0;
 
       sequence.push({
-        type: isLongBreak ? "longBreak" : "shortBreak",
+        type: isLongBreak ? "long_break" : "short_break",
         completed: completedSessions.some(
           (s, i) =>
             i === (cycle - 1) * 2 + 1 &&
-            s.type === (isLongBreak ? "longBreak" : "shortBreak") &&
+            s.type === (isLongBreak ? "long_break" : "short_break") &&
             s.completed
         ),
       });
@@ -142,16 +188,14 @@ export default function PomodoroPage() {
 
   // Handle skipping break sessions
   const handleSkipBreak = () => {
-    if (currentSessionType === "focus") return; // Only allow skipping breaks
+    if (currentSessionType === "study") return; // Only allow skipping breaks
 
     setTimerRunning(false);
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
 
-    // Mark current break session as completed (skipped)
     setCompletedSessions((prev) => {
       const newCompleted = [...prev];
-      // Since we're in a break session, currentIndex is always cycle * 2 - 1 (break position)
       const currentIndex = (currentCycle - 1) * 2 + 1;
       newCompleted[currentIndex] = {
         type: currentSessionType,
@@ -167,8 +211,7 @@ export default function PomodoroPage() {
 
     setCurrentSessionType(nextSessionType);
 
-    // Since we're skipping a break, the next session will always be focus
-    if (nextSessionType === "focus") {
+    if (nextSessionType === "study") {
       setCurrentCycle((prev) => prev + 1);
     }
 
@@ -191,15 +234,10 @@ export default function PomodoroPage() {
     }
   }, [subjects, currentSubject]);
 
-  // Main timer effect
+  // Effect to handle session completion when timer reaches zero
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (timerRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && timerRunning) {
-      // Play sound when a session ends
+    // This now only triggers when a session ends, the countdown is handled by the worker.
+    if (timeLeft === 0 && timerRunning) {
       if (pomodoroSettings) {
         playSound(
           pomodoroSettings.selectedSoundId,
@@ -207,14 +245,14 @@ export default function PomodoroPage() {
         );
       }
 
-      setTimerRunning(false);
+      setTimerRunning(false); // This will stop the worker via the other useEffect
       setFullscreenOverlayOpen(false);
       isPausedRef.current = false;
 
       setCompletedSessions((prev) => {
         const newCompleted = [...prev];
         const currentIndex =
-          (currentCycle - 1) * 2 + (currentSessionType === "focus" ? 0 : 1);
+          (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
         newCompleted[currentIndex] = {
           type: currentSessionType,
           completed: true,
@@ -225,30 +263,27 @@ export default function PomodoroPage() {
       const nextSessionType = getNextSessionType();
       if (
         currentCycle >= (pomodoroSettings?.iterations || 1) &&
-        currentSessionType !== "focus"
+        currentSessionType !== "study"
       ) {
         return;
       }
 
       setCurrentSessionType(nextSessionType);
 
-      if (currentSessionType !== "focus" && nextSessionType === "focus") {
+      if (currentSessionType !== "study" && nextSessionType === "study") {
         setCurrentCycle((prev) => prev + 1);
       }
 
       const nextDuration = getSessionDuration(nextSessionType);
       setTimeLeft(nextDuration * 60);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
   }, [
-    timerRunning,
     timeLeft,
+    timerRunning, // Keep timerRunning to know if the countdown was active
     currentSessionType,
     currentCycle,
     pomodoroSettings,
-    playSound, // Added playSound to dependency array
+    playSound,
   ]);
 
   // Update timer when settings change
@@ -260,7 +295,7 @@ export default function PomodoroPage() {
       focusTimeChanged &&
       !timerRunning &&
       !isPausedRef.current &&
-      currentSessionType === "focus"
+      currentSessionType === "study"
     ) {
       setTimeLeft(pomodoroSettings.focusTime * 60);
     }
@@ -268,13 +303,13 @@ export default function PomodoroPage() {
   }, [pomodoroSettings?.focusTime, timerRunning, currentSessionType]);
 
   usePomodoroTracker({
-    timerRunning,
     timeLeft,
+    timerRunning,
+    sessionType: currentSessionType,
+    currentSubject,
     focusDuration: pomodoroSettings?.focusTime,
     shortBreakDuration: pomodoroSettings?.shortBreak,
     longBreakDuration: pomodoroSettings?.longBreak,
-    currentSubject,
-    sessionType: currentSessionType,
   });
 
   const getButtonText = () => {
@@ -292,6 +327,7 @@ export default function PomodoroPage() {
   };
 
   const handlePlayPause = () => {
+    // This logic now controls the worker indirectly by toggling `timerRunning` state
     if (timerRunning) {
       isPausedRef.current = true;
       setTimerRunning(false);
@@ -305,11 +341,11 @@ export default function PomodoroPage() {
   };
 
   const handleReset = () => {
-    setCurrentSessionType("focus");
+    setCurrentSessionType("study");
     setCurrentCycle(1);
     setCompletedSessions([]);
     setTimeLeft(pomodoroSettings?.focusTime * 60 || 1500);
-    setTimerRunning(false);
+    setTimerRunning(false); // This will also stop the worker
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
   };
@@ -329,22 +365,22 @@ export default function PomodoroPage() {
     }
   };
 
-  // Session Indicators Component
+  // Session Indicators Component (Unchanged)
   const SessionIndicators = () => {
     const sessionSequence = generateSessionSequence();
     const currentSessionIndex =
-      (currentCycle - 1) * 2 + (currentSessionType === "focus" ? 0 : 1);
+      (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
 
     const getSessionDisplayName = (
       type: SessionType,
       cycleNum?: number
     ): string => {
       switch (type) {
-        case "focus":
+        case "study":
           return `Focus (Cycle ${cycleNum})`;
-        case "shortBreak":
+        case "short_break":
           return "Short Break";
-        case "longBreak":
+        case "long_break":
           return "Long Break";
         default:
           return "Session";
@@ -362,9 +398,9 @@ export default function PomodoroPage() {
             "group relative w-3 h-3 rounded-full transition-all duration-300 cursor-help";
 
           const sessionTypeColor = {
-            focus: "bg-primary ring-primary",
-            shortBreak: "bg-secondary ring-secondary",
-            longBreak: "bg-accent ring-accent",
+            study: "bg-primary ring-primary",
+            short_break: "bg-secondary ring-secondary",
+            long_break: "bg-accent ring-accent",
           };
 
           const colorClasses =
@@ -386,7 +422,7 @@ export default function PomodoroPage() {
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-popover text-popover-foreground text-xs font-medium rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                 {getSessionDisplayName(
                   session.type,
-                  session.type === "focus" ? cycleNumber : undefined
+                  session.type === "study" ? cycleNumber : undefined
                 )}
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-x-4 border-t-4 border-x-transparent border-t-popover"></div>
               </div>
@@ -397,6 +433,7 @@ export default function PomodoroPage() {
     );
   };
 
+  // Loading and Error States (Unchanged)
   if (loading) {
     return (
       <div className="max-w-xl mx-auto flex items-center justify-center min-h-[400px]">
@@ -424,6 +461,7 @@ export default function PomodoroPage() {
     );
   }
 
+  // JSX Return (Unchanged)
   return (
     <>
       <div className="max-w-xl mx-auto space-y-8 px-4 py-24 md:py-24">
@@ -435,7 +473,7 @@ export default function PomodoroPage() {
               {formatTime(timeLeft)}
             </div>
 
-            {currentSessionType === "focus" &&
+            {currentSessionType === "study" &&
               subjects &&
               subjects.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
@@ -465,10 +503,10 @@ export default function PomodoroPage() {
                 </div>
               )}
 
-            {currentSessionType !== "focus" && (
+            {currentSessionType !== "study" && (
               <div className="text-center max-w-md mx-auto pt-4">
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  {currentSessionType === "shortBreak"
+                  {currentSessionType === "short_break"
                     ? "Time for a short break. Stretch, hydrate, or rest your eyes."
                     : "Enjoy a long break. Go for a walk or do something refreshing."}
                 </p>
@@ -508,8 +546,7 @@ export default function PomodoroPage() {
                 {getButtonText()}
               </Button>
 
-              {/* Skip Break Button - Only show during break sessions */}
-              {currentSessionType !== "focus" && (
+              {currentSessionType !== "study" && (
                 <Button
                   size="lg"
                   variant="secondary"
@@ -550,7 +587,7 @@ export default function PomodoroPage() {
         currentCycle={currentCycle}
         sessionSequence={generateSessionSequence()}
         currentSessionIndex={
-          (currentCycle - 1) * 2 + (currentSessionType === "focus" ? 0 : 1)
+          (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1)
         }
         timerRunning={timerRunning}
         onToggleTimer={handlePlayPause}

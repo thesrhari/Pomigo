@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,51 +20,18 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
+import { createClient } from "@/lib/supabase/client";
+import {
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  format,
+  parseISO,
+} from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// --- Mock Data ---
-const todayStats = {
-  streak: 7,
-  hoursToday: 3.2,
-  pomodorosToday: 6,
-  topSubject: "Mathematics",
-};
-
-const weeklyData = [
-  { day: "Mon", hours: 4.5 },
-  { day: "Tue", hours: 3.2 },
-  { day: "Wed", hours: 5.1 },
-  { day: "Thu", hours: 2.8 },
-  { day: "Fri", hours: 6.2 },
-  { day: "Sat", hours: 4.0 },
-  { day: "Sun", hours: 3.2 },
-];
-
-const friends = [
-  {
-    name: "Sarah Chen",
-    status: "studying Physics",
-    avatar: "👩‍💻",
-    streak: 12,
-    isOnline: true,
-    hoursToday: 3.2,
-  },
-  {
-    name: "Alex Kumar",
-    status: "completed 4 pomodoros",
-    avatar: "👨‍🎓",
-    streak: 8,
-    isOnline: true,
-    hoursToday: 2.8,
-  },
-  {
-    name: "Emma Wilson",
-    status: "studying Mathematics",
-    avatar: "👩‍🔬",
-    streak: 15,
-    isOnline: false,
-    hoursToday: 0,
-  },
-];
+// --- Helper Functions & Components ---
 
 // Updated StatCard using CSS tokens
 const StatCard = ({
@@ -107,7 +74,28 @@ const StatCard = ({
   );
 };
 
-// Updated FriendsActivity using CSS tokens
+// FriendsActivity remains with mock data as the hook doesn't provide this information.
+const friends = [
+  {
+    name: "Sarah Chen",
+    status: "studying Physics",
+    avatar: "👩‍💻",
+    isOnline: true,
+  },
+  {
+    name: "Alex Kumar",
+    status: "completed 4 pomodoros",
+    avatar: "👨‍🎓",
+    isOnline: true,
+  },
+  {
+    name: "Emma Wilson",
+    status: "studying Mathematics",
+    avatar: "👩‍🔬",
+    isOnline: false,
+  },
+];
+
 const FriendsActivity = ({ friends }: { friends: any[] }) => (
   <Card>
     <CardHeader>
@@ -138,8 +126,99 @@ const FriendsActivity = ({ friends }: { friends: any[] }) => (
   </Card>
 );
 
+// --- Main Dashboard Component ---
+
 export default function DashboardPage() {
   const router = useRouter();
+  const supabase = createClient();
+  const [userName, setUserName] = useState<string | null>(null);
+  const [weeklyData, setWeeklyData] = useState<
+    { day: string; hours: number }[]
+  >([]);
+
+  const {
+    data,
+    loading: statsLoading,
+    error: statsError,
+  } = useAnalyticsData("today", new Date().getFullYear());
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserName(user?.user_metadata?.full_name || "there");
+    };
+
+    const fetchWeeklyChartData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const now = new Date();
+      const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 });
+      const endOfThisWeek = endOfWeek(now, { weekStartsOn: 1 });
+
+      const { data: sessions, error } = await supabase
+        .from("sessions")
+        .select("started_at, duration")
+        .eq("user_id", user.id)
+        .eq("session_type", "study")
+        .gte("started_at", startOfThisWeek.toISOString())
+        .lte("started_at", endOfThisWeek.toISOString());
+
+      if (error) {
+        console.error("Error fetching weekly data:", error);
+        return;
+      }
+
+      const daysInWeek = eachDayOfInterval({
+        start: startOfThisWeek,
+        end: endOfThisWeek,
+      });
+
+      const dailyMinutes = new Map<string, number>();
+      daysInWeek.forEach((day) => {
+        dailyMinutes.set(format(day, "yyyy-MM-dd"), 0);
+      });
+
+      sessions.forEach((session) => {
+        const dayKey = format(parseISO(session.started_at), "yyyy-MM-dd");
+        if (dailyMinutes.has(dayKey)) {
+          dailyMinutes.set(
+            dayKey,
+            dailyMinutes.get(dayKey)! + session.duration
+          );
+        }
+      });
+
+      const chartData = Array.from(dailyMinutes.entries()).map(
+        ([date, totalMinutes]) => ({
+          day: format(parseISO(date), "E"), // Format to 'Mon', 'Tue', etc.
+          // Correctly convert minutes to hours
+          hours: parseFloat((totalMinutes / 60).toFixed(1)),
+        })
+      );
+
+      setWeeklyData(chartData);
+    };
+
+    fetchUserData();
+    fetchWeeklyChartData();
+  }, []);
+
+  if (statsLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (statsError) {
+    return (
+      <div className="text-red-500">
+        Error loading dashboard stats: {statsError}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -148,16 +227,20 @@ export default function DashboardPage() {
         <CardContent className="p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div>
-              <h1 className="text-3xl font-bold">Good morning, Alex! 👋</h1>
+              <h1 className="text-3xl font-bold">
+                Good morning, {userName}! 👋
+              </h1>
               <p className="text-lg text-muted-foreground mt-2">
                 Ready for another productive study session?
               </p>
-              <div className="flex items-center mt-4 space-x-2">
-                <Flame className="w-5 h-5 text-chart-3" />
-                <span className="font-semibold text-chart-3">
-                  {todayStats.streak} day streak!
-                </span>
-              </div>
+              {data && data.currentStreak > 0 && (
+                <div className="flex items-center mt-4 space-x-2">
+                  <Flame className="w-5 h-5 text-chart-3" />
+                  <span className="font-semibold text-chart-3">
+                    {data.currentStreak} day streak!
+                  </span>
+                </div>
+              )}
             </div>
             <Button size="lg" onClick={() => router.push("/pomodoro")}>
               <Play className="w-5 h-5 mr-2" />
@@ -171,28 +254,29 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Hours Today"
-          value={todayStats.hoursToday}
+          // Correctly convert minutes to hours
+          value={data ? (data.totalStudyTime / 60).toFixed(1) : "0.0"}
           subtitle="Keep it up!"
           icon={Timer}
           variant="primary"
         />
         <StatCard
           title="Pomodoros"
-          value={todayStats.pomodorosToday}
+          value={data ? data.totalStudySessions : 0}
           subtitle="Today's sessions"
           icon={Target}
           variant="secondary"
         />
         <StatCard
           title="Streak"
-          value={`${todayStats.streak} days`}
-          subtitle="Personal best!"
+          value={`${data ? data.currentStreak : 0} days`}
+          subtitle={`Best: ${data ? data.bestStreak : 0} days`}
           icon={Flame}
           variant="accent"
         />
         <StatCard
           title="Top Subject"
-          value={todayStats.topSubject}
+          value={data?.totalTimePerSubject[0]?.name || "N/A"}
           subtitle="This week"
           icon={Book}
           variant="muted"
@@ -265,3 +349,65 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+// A skeleton loader component to show while data is fetching
+const DashboardSkeleton = () => (
+  <div className="space-y-8">
+    <Card className="bg-muted/50 border-primary/20">
+      <CardContent className="p-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div>
+            <Skeleton className="h-9 w-72" />
+            <Skeleton className="h-6 w-80 mt-3" />
+          </div>
+          <Skeleton className="h-12 w-44" />
+        </div>
+      </CardContent>
+    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-9 w-16 mt-2" />
+                <Skeleton className="h-5 w-20 mt-2" />
+              </div>
+              <Skeleton className="w-12 h-12 rounded-lg" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-80 w-full" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-5 w-48 mt-2" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center space-x-3">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+);

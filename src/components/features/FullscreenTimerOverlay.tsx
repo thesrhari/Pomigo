@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw, SkipForward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type SessionType = "focus" | "shortBreak" | "longBreak";
+type SessionType = "study" | "short_break" | "long_break";
 
 interface SessionStatus {
   type: SessionType;
@@ -55,7 +55,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   // Get session-specific styling and content using only theme variables
   const getSessionConfig = () => {
     switch (sessionType) {
-      case "focus":
+      case "study":
         return {
           bgClass: "bg-background",
           textClass: "text-foreground",
@@ -64,14 +64,14 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
             ? `Studying: ${currentSubject}`
             : "Time to focus",
         };
-      case "shortBreak":
+      case "short_break":
         return {
           bgClass: "bg-gradient-to-br from-background to-secondary",
           textClass: "text-secondary-foreground",
           title: "Short Break",
           subtitle: "A quick breather.",
         };
-      case "longBreak":
+      case "long_break":
         return {
           bgClass: "bg-gradient-to-br from-background to-accent",
           textClass: "text-accent-foreground",
@@ -97,11 +97,11 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
       cycleNum?: number
     ): string => {
       switch (type) {
-        case "focus":
+        case "study":
           return `Focus (Cycle ${cycleNum})`;
-        case "shortBreak":
+        case "short_break":
           return "Short Break";
-        case "longBreak":
+        case "long_break":
           return "Long Break";
         default:
           return "Session";
@@ -112,16 +112,16 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
     const indicatorClasses = {
       base: "group relative w-3 h-3 rounded-full transition-all duration-300 cursor-help",
       status: {
-        focus: {
+        study: {
           completed: "bg-primary",
           current: "bg-primary/80 ring-2 ring-primary/30 scale-125",
         },
-        shortBreak: {
+        short_break: {
           completed: "bg-secondary-foreground",
           current:
             "bg-secondary-foreground/80 ring-2 ring-secondary-foreground/30 scale-125",
         },
-        longBreak: {
+        long_break: {
           completed: "bg-accent-foreground",
           current:
             "bg-accent-foreground/80 ring-2 ring-accent-foreground/30 scale-125",
@@ -156,7 +156,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 border">
                 {getSessionDisplayName(
                   session.type,
-                  session.type === "focus" ? cycleNumber : undefined
+                  session.type === "study" ? cycleNumber : undefined
                 )}{" "}
                 -{" "}
                 {isCompleted
@@ -304,7 +304,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                   {timerRunning ? "Pause" : "Resume"}
                 </Button>
                 {/* Skip Break Button - Only show during break sessions */}
-                {sessionType !== "focus" && (
+                {sessionType !== "study" && (
                   <Button
                     size="lg"
                     variant="ghost"
