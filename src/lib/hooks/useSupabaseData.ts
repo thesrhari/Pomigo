@@ -13,6 +13,8 @@ interface PomodoroSettings {
   focusTime: number;
   shortBreak: number;
   longBreak: number;
+  longBreakEnabled: boolean;
+  longBreakInterval: number;
   iterations: number;
 }
 
@@ -20,8 +22,10 @@ interface PomodoroSettings {
 const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   focusTime: 25,
   shortBreak: 5,
-  longBreak: 10,
-  iterations: 3,
+  longBreak: 15,
+  longBreakEnabled: true,
+  longBreakInterval: 4,
+  iterations: 4,
 };
 
 // Initialize Supabase client
@@ -100,8 +104,13 @@ export function useSupabaseData() {
           focusTime: data.focus_duration || DEFAULT_POMODORO_SETTINGS.focusTime,
           shortBreak: data.short_break || DEFAULT_POMODORO_SETTINGS.shortBreak,
           longBreak: data.long_break || DEFAULT_POMODORO_SETTINGS.longBreak,
-          iterations:
-            data.long_break_interval || DEFAULT_POMODORO_SETTINGS.iterations,
+          longBreakEnabled:
+            data.long_break_enabled ??
+            DEFAULT_POMODORO_SETTINGS.longBreakEnabled,
+          longBreakInterval:
+            data.long_break_interval ||
+            DEFAULT_POMODORO_SETTINGS.longBreakInterval,
+          iterations: data.iterations || DEFAULT_POMODORO_SETTINGS.iterations,
         });
       }
     } catch (err) {
@@ -178,7 +187,9 @@ export function useSupabaseData() {
         focus_duration: newSettings.focusTime,
         short_break: newSettings.shortBreak,
         long_break: newSettings.longBreak,
-        long_break_interval: newSettings.iterations,
+        long_break_enabled: newSettings.longBreakEnabled,
+        long_break_interval: newSettings.longBreakInterval,
+        iterations: newSettings.iterations,
       });
 
       if (error) throw error;
@@ -188,6 +199,7 @@ export function useSupabaseData() {
     } catch (err) {
       console.error("Error updating pomodoro settings:", err);
       setError("Failed to update pomodoro settings");
+      throw err; // Re-throw so component can handle the error
     }
   };
 

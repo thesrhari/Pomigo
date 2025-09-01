@@ -9,19 +9,17 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { Button } from "../ui/button";
+import { Switch } from "../ui/switch";
+import { Input } from "../ui/input";
+import { Minus, Plus } from "lucide-react";
 
 interface PomodoroSettingsType {
   focusTime: number;
   shortBreak: number;
   longBreak: number;
+  longBreakEnabled: boolean;
+  longBreakInterval: number;
   iterations: number;
 }
 
@@ -31,6 +29,101 @@ interface PomodoroSettingsProps {
   settings: PomodoroSettingsType;
   updateSettings: (settings: PomodoroSettingsType) => Promise<void>;
 }
+
+interface NumberInputProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  disabled?: boolean;
+  unit?: string;
+  description?: string;
+}
+
+const NumberInput: React.FC<NumberInputProps> = ({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  disabled = false,
+  unit = "min",
+  description,
+}) => {
+  const handleDecrement = () => {
+    const newValue = Math.max(min, value - step);
+    onChange(newValue);
+  };
+
+  const handleIncrement = () => {
+    const newValue = Math.min(max, value + step);
+    onChange(newValue);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = parseInt(e.target.value);
+    if (!isNaN(inputValue)) {
+      const clampedValue = Math.max(min, Math.min(max, inputValue));
+      onChange(clampedValue);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label className="text-right">{label}</Label>
+        <div className="col-span-3 flex items-center space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full"
+            onClick={handleDecrement}
+            disabled={disabled || value <= min}
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 text-center">
+            <Input
+              type="number"
+              value={value}
+              onChange={handleInputChange}
+              disabled={disabled}
+              min={min}
+              max={max}
+              step={step}
+              className="text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full"
+            onClick={handleIncrement}
+            disabled={disabled || value >= max}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground w-12 text-left">
+            {unit}
+          </span>
+        </div>
+      </div>
+      {description && (
+        <div className="grid grid-cols-4 gap-4">
+          <div></div>
+          <div className="col-span-3">
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
   isOpen,
@@ -65,128 +158,125 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
     onClose();
   };
 
+  const updateLocalSetting = <K extends keyof PomodoroSettingsType>(
+    key: K,
+    value: PomodoroSettingsType[K]
+  ) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pomodoro Settings</DialogTitle>
           <DialogDescription>
-            Customize your focus sessions and break times.
+            Customize your focus sessions and break times. The timer will
+            automatically cycle between sessions and breaks.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-6 py-4">
           {/* Focus Time */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="focusTime" className="text-right">
-              Focus Time
-            </Label>
-            <Select
-              value={localSettings.focusTime.toString()}
-              onValueChange={(value) =>
-                setLocalSettings({
-                  ...localSettings,
-                  focusTime: parseInt(value),
-                })
-              }
-              disabled={isLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 minute</SelectItem>
-                <SelectItem value="15">15 minutes</SelectItem>
-                <SelectItem value="25">25 minutes</SelectItem>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="45">45 minutes</SelectItem>
-                <SelectItem value="60">60 minutes</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <NumberInput
+            label="Focus Time"
+            value={localSettings.focusTime}
+            onChange={(value) => updateLocalSetting("focusTime", value)}
+            min={10}
+            max={180}
+            step={5}
+            disabled={isLoading}
+            unit="min"
+            description="Duration of each focus session"
+          />
 
           {/* Short Break */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="shortBreak" className="text-right">
-              Short Break
-            </Label>
-            <Select
-              value={localSettings.shortBreak.toString()}
-              onValueChange={(value) =>
-                setLocalSettings({
-                  ...localSettings,
-                  shortBreak: parseInt(value),
-                })
-              }
-              disabled={isLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">3 minutes</SelectItem>
-                <SelectItem value="5">5 minutes</SelectItem>
-                <SelectItem value="10">10 minutes</SelectItem>
-                <SelectItem value="15">15 minutes</SelectItem>
-              </SelectContent>
-            </Select>
+          <NumberInput
+            label="Short Break"
+            value={localSettings.shortBreak}
+            onChange={(value) => updateLocalSetting("shortBreak", value)}
+            min={2}
+            max={90}
+            step={2}
+            disabled={isLoading}
+            unit="min"
+            description="Duration of regular breaks between focus sessions"
+          />
+
+          {/* Long Break Toggle */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Long Break</Label>
+              <div className="col-span-3 flex items-center space-x-2">
+                <Switch
+                  checked={localSettings.longBreakEnabled}
+                  onCheckedChange={(checked) =>
+                    updateLocalSetting("longBreakEnabled", checked)
+                  }
+                  disabled={isLoading}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {localSettings.longBreakEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              <div></div>
+              <div className="col-span-3">
+                <p className="text-xs text-muted-foreground">
+                  Enable longer breaks at regular intervals
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Long Break */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="longBreak" className="text-right">
-              Long Break
-            </Label>
-            <Select
-              value={localSettings.longBreak.toString()}
-              onValueChange={(value) =>
-                setLocalSettings({
-                  ...localSettings,
-                  longBreak: parseInt(value),
-                })
-              }
+          {/* Long Break Duration - only show when enabled */}
+          {localSettings.longBreakEnabled && (
+            <NumberInput
+              label="Long Break Duration"
+              value={localSettings.longBreak}
+              onChange={(value) => updateLocalSetting("longBreak", value)}
+              min={5}
+              max={180}
+              step={5}
               disabled={isLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10 minutes</SelectItem>
-                <SelectItem value="15">15 minutes</SelectItem>
-                <SelectItem value="20">20 minutes</SelectItem>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="45">45 minutes</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              unit="min"
+              description="Duration of extended breaks"
+            />
+          )}
 
-          {/* Iterations */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="iterations" className="text-right">
-              Iterations
-            </Label>
-            <Select
-              value={localSettings.iterations.toString()}
-              onValueChange={(value) =>
-                setLocalSettings({
-                  ...localSettings,
-                  iterations: parseInt(value),
-                })
+          {/* Long Break Interval - only show when long break is enabled */}
+          {localSettings.longBreakEnabled && (
+            <NumberInput
+              label="Long Break After"
+              value={localSettings.longBreakInterval}
+              onChange={(value) =>
+                updateLocalSetting("longBreakInterval", value)
               }
+              min={2}
+              max={10}
+              step={1}
               disabled={isLoading}
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">2 cycles</SelectItem>
-                <SelectItem value="3">3 cycles</SelectItem>
-                <SelectItem value="4">4 cycles</SelectItem>
-                <SelectItem value="6">6 cycles</SelectItem>
-                <SelectItem value="8">8 cycles</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              unit="cycles"
+              description="Number of focus sessions before a long break"
+            />
+          )}
+
+          {/* Number of Cycles */}
+          <NumberInput
+            label="Total Cycles"
+            value={localSettings.iterations}
+            onChange={(value) => updateLocalSetting("iterations", value)}
+            min={1}
+            max={10}
+            step={1}
+            disabled={isLoading}
+            unit="cycles"
+            description="Total number of focus-break cycles to complete"
+          />
         </div>
 
         <DialogFooter className="gap-2">
