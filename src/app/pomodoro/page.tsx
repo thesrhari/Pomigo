@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
-
+import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications"; // Import the audio hook
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -45,6 +45,9 @@ export default function PomodoroPage() {
     deleteSubject,
     updatePomodoroSettings,
   } = useSupabaseData();
+
+  // Audio hook for playing sounds
+  const { playSound } = useAudioNotifications();
 
   // Local state
   const [timerRunning, setTimerRunning] = useState(false);
@@ -196,6 +199,14 @@ export default function PomodoroPage() {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && timerRunning) {
+      // Play sound when a session ends
+      if (pomodoroSettings) {
+        playSound(
+          pomodoroSettings.selectedSoundId,
+          pomodoroSettings.soundEnabled
+        );
+      }
+
       setTimerRunning(false);
       setFullscreenOverlayOpen(false);
       isPausedRef.current = false;
@@ -237,6 +248,7 @@ export default function PomodoroPage() {
     currentSessionType,
     currentCycle,
     pomodoroSettings,
+    playSound, // Added playSound to dependency array
   ]);
 
   // Update timer when settings change
@@ -463,7 +475,7 @@ export default function PomodoroPage() {
               </div>
             )}
 
-            <div className="flex items-center justify-center gap-x-4 mt-12">
+            <div className="flex items-center justify-center gap-1 md:gap-4 mt-12">
               <div className="relative group">
                 <Button
                   variant="ghost"

@@ -13,7 +13,9 @@ import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
 import { Minus, Plus } from "lucide-react";
+import { SoundSelector } from "@/components/features/SoundSelector"; // SoundSelector is now imported
 
+// The settings type is expanded to include sound options
 interface PomodoroSettingsType {
   focusTime: number;
   shortBreak: number;
@@ -21,6 +23,8 @@ interface PomodoroSettingsType {
   longBreakEnabled: boolean;
   longBreakInterval: number;
   iterations: number;
+  soundEnabled: boolean; // Added
+  selectedSoundId: number | null; // Added
 }
 
 interface PomodoroSettingsProps {
@@ -174,8 +178,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
         <DialogHeader>
           <DialogTitle>Pomodoro Settings</DialogTitle>
           <DialogDescription>
-            Customize your focus sessions and break times. The timer will
-            automatically cycle between sessions and breaks.
+            Customize your focus sessions and break times.
           </DialogDescription>
         </DialogHeader>
 
@@ -277,6 +280,21 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
             unit="cycles"
             description="Total number of focus-break cycles to complete"
           />
+
+          {/* Sound settings are now included */}
+          <div className="border-t pt-6 mt-2">
+            <SoundSelector
+              soundEnabled={localSettings.soundEnabled}
+              selectedSoundId={localSettings.selectedSoundId}
+              onSoundEnabledChange={(enabled) =>
+                updateLocalSetting("soundEnabled", enabled)
+              }
+              onSoundSelectionChange={(soundId) =>
+                updateLocalSetting("selectedSoundId", soundId)
+              }
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
         <DialogFooter className="gap-2">

@@ -16,6 +16,8 @@ interface PomodoroSettings {
   longBreakEnabled: boolean;
   longBreakInterval: number;
   iterations: number;
+  soundEnabled: boolean;
+  selectedSoundId: number | null;
 }
 
 // Default settings to prevent null access
@@ -26,6 +28,8 @@ const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   longBreakEnabled: true,
   longBreakInterval: 4,
   iterations: 4,
+  soundEnabled: true, // Enable by default
+  selectedSoundId: 1,
 };
 
 // Initialize Supabase client
@@ -111,6 +115,10 @@ export function useSupabaseData() {
             data.long_break_interval ||
             DEFAULT_POMODORO_SETTINGS.longBreakInterval,
           iterations: data.iterations || DEFAULT_POMODORO_SETTINGS.iterations,
+          soundEnabled:
+            data.sound_enabled ?? DEFAULT_POMODORO_SETTINGS.soundEnabled,
+          selectedSoundId:
+            data.selected_sound_id || DEFAULT_POMODORO_SETTINGS.selectedSoundId,
         });
       }
     } catch (err) {
@@ -190,6 +198,8 @@ export function useSupabaseData() {
         long_break_enabled: newSettings.longBreakEnabled,
         long_break_interval: newSettings.longBreakInterval,
         iterations: newSettings.iterations,
+        sound_enabled: newSettings.soundEnabled,
+        selected_sound_id: newSettings.selectedSoundId,
       });
 
       if (error) throw error;
