@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import { Play, Pause, RotateCcw, SkipForward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type SessionType = "focus" | "shortBreak" | "longBreak";
@@ -22,6 +22,7 @@ interface FullscreenTimerOverlayProps {
   onToggleTimer: () => void;
   onReset: () => void;
   onClose: () => void;
+  onSkip: () => void;
 }
 
 export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
@@ -36,6 +37,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   onToggleTimer,
   onReset,
   onClose,
+  onSkip,
 }) => {
   const [showControls, setShowControls] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -292,7 +294,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                   variant="ghost"
                   size="lg"
                   onClick={onToggleTimer}
-                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75"
+                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75 cursor-pointer"
                 >
                   {timerRunning ? (
                     <Pause className="w-5 h-5 mr-2" />
@@ -301,11 +303,24 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                   )}
                   {timerRunning ? "Pause" : "Resume"}
                 </Button>
+                {/* Skip Break Button - Only show during break sessions */}
+                {sessionType !== "focus" && (
+                  <Button
+                    size="lg"
+                    variant="ghost"
+                    onClick={onSkip}
+                    className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75 cursor-pointer"
+                    title="Skip break and go to next session"
+                  >
+                    <SkipForward className="w-5 h-5 mr-2" />
+                    Skip
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="lg"
                   onClick={onReset}
-                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75"
+                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75 cursor-pointer"
                 >
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Reset & Exit

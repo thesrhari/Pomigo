@@ -12,7 +12,14 @@ import {
 import { PomodoroSettings } from "@/components/features/PomodoroSettings";
 import { SubjectManager } from "@/components/features/SubjectManager";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
-import { Play, Pause, Settings, Book, RotateCcw } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Settings,
+  Book,
+  RotateCcw,
+  SkipForward,
+} from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
 
@@ -57,6 +64,14 @@ export default function PomodoroPage() {
   // Track if timer was manually paused vs reset/stopped
   const isPausedRef = useRef(false);
   const previousFocusTimeRef = useRef(0);
+
+  // Check if the entire pomodoro sequence has started (any session started from initial state)
+  const isPomodoroSequenceActive =
+    currentCycle > 1 ||
+    currentSessionType !== "focus" ||
+    completedSessions.length > 0 ||
+    timerRunning ||
+    isPausedRef.current;
 
   // Helper function to get session duration
   const getSessionDuration = (sessionType: SessionType): number => {
@@ -120,6 +135,42 @@ export default function PomodoroPage() {
       });
     }
     return sequence;
+  };
+
+  // Handle skipping break sessions
+  const handleSkipBreak = () => {
+    if (currentSessionType === "focus") return; // Only allow skipping breaks
+
+    setTimerRunning(false);
+    setFullscreenOverlayOpen(false);
+    isPausedRef.current = false;
+
+    // Mark current break session as completed (skipped)
+    setCompletedSessions((prev) => {
+      const newCompleted = [...prev];
+      // Since we're in a break session, currentIndex is always cycle * 2 - 1 (break position)
+      const currentIndex = (currentCycle - 1) * 2 + 1;
+      newCompleted[currentIndex] = {
+        type: currentSessionType,
+        completed: true,
+      };
+      return newCompleted;
+    });
+
+    const nextSessionType = getNextSessionType();
+    if (currentCycle >= (pomodoroSettings?.iterations || 1)) {
+      return;
+    }
+
+    setCurrentSessionType(nextSessionType);
+
+    // Since we're skipping a break, the next session will always be focus
+    if (nextSessionType === "focus") {
+      setCurrentCycle((prev) => prev + 1);
+    }
+
+    const nextDuration = getSessionDuration(nextSessionType);
+    setTimeLeft(nextDuration * 60);
   };
 
   // Initialize timer when settings load
@@ -413,18 +464,29 @@ export default function PomodoroPage() {
             )}
 
             <div className="flex items-center justify-center gap-x-4 mt-12">
-              <Button
-                variant="ghost"
-                className="rounded-full transition-all"
-                onClick={() => setPomodoroSettingsOpen(true)}
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
+              <div className="relative group">
+                <Button
+                  variant="ghost"
+                  className="rounded-full transition-all cursor-pointer"
+                  onClick={() => setPomodoroSettingsOpen(true)}
+                  disabled={isPomodoroSequenceActive}
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+                {isPomodoroSequenceActive && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-popover text-popover-foreground text-sm font-medium rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                    Settings are locked. Reset or complete the session to change
+                    settings.
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-x-4 border-t-4 border-x-transparent border-t-popover"></div>
+                  </div>
+                )}
+              </div>
+
               <Button
                 size="lg"
                 variant="outline"
                 onClick={handlePlayPause}
-                className="rounded-full w-32 transition-all"
+                className="rounded-full w-32 transition-all cursor-pointer"
               >
                 {timerRunning ? (
                   <Pause className="w-5 h-5 mr-2" />
@@ -434,11 +496,25 @@ export default function PomodoroPage() {
                 {getButtonText()}
               </Button>
 
+              {/* Skip Break Button - Only show during break sessions */}
+              {currentSessionType !== "focus" && (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={handleSkipBreak}
+                  className="rounded-full transition-all cursor-pointer"
+                  title="Skip break and go to next session"
+                >
+                  <SkipForward className="w-4 h-4 mr-2" />
+                  Skip
+                </Button>
+              )}
+
               <Button
                 size="lg"
                 variant="ghost"
                 onClick={handleReset}
-                className="rounded-full transition-all"
+                className="rounded-full transition-all cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
               </Button>
@@ -447,7 +523,7 @@ export default function PomodoroPage() {
         </Card>
 
         <PomodoroSettings
-          isOpen={pomodoroSettingsOpen}
+          isOpen={pomodoroSettingsOpen && !isPomodoroSequenceActive}
           onClose={() => setPomodoroSettingsOpen(false)}
           settings={pomodoroSettings}
           updateSettings={handleUpdatePomodoroSettings}
@@ -468,6 +544,7 @@ export default function PomodoroPage() {
         onToggleTimer={handlePlayPause}
         onReset={handleReset}
         onClose={() => setFullscreenOverlayOpen(false)}
+        onSkip={handleSkipBreak}
       />
     </>
   );
