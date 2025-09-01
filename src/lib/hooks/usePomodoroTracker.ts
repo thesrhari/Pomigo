@@ -215,15 +215,6 @@ export function usePomodoroTracker({
         const sessionTotalSeconds = sessionDuration * 60;
 
         // --- Condition 2: Check session completion FIRST ---
-        // Use the captured values from the start of this effect
-        console.log("🔍 Session completion check:", {
-          wasRunning,
-          timerRunning,
-          timeLeft,
-          previousTimeLeft,
-          sessionCompleted: sessionCompletedRef.current,
-          sessionType,
-        });
 
         // Detect completion: timer reached 0 from a positive value
         const justReachedZero = timeLeft === 0 && previousTimeLeft > 0;
@@ -235,8 +226,6 @@ export function usePomodoroTracker({
           (justReachedZero || stoppedAtZero) && !sessionCompletedRef.current;
 
         if (isSessionComplete) {
-          console.log(`🎯 Session completed: ${sessionType}`);
-
           if (sessionType === "focus" && currentSubject) {
             // Complete focus session (increment completed count)
             await updateUserStudyStats(user.id, 0, 1);
@@ -272,9 +261,6 @@ export function usePomodoroTracker({
           minutesElapsed > 0;
 
         if (isNewMinute) {
-          console.log(
-            `📝 New minute tracked: ${minutesElapsed} minutes for ${sessionType}`
-          );
           if (sessionType === "focus" && currentSubject) {
             // Track study time
             await updateUserStudyStats(user.id, 1);
@@ -295,12 +281,6 @@ export function usePomodoroTracker({
           timeLeft === sessionTotalSeconds &&
           !timerRunning &&
           previousTimeLeft !== sessionTotalSeconds;
-
-        if (isTimerReset) {
-          console.log(`🔄 Timer reset for ${sessionType}`);
-          sessionCompletedRef.current = false;
-          lastMinuteRecordedRef.current = null;
-        }
       } catch (err) {
         console.error("❌ PomodoroTracker error:", err);
       }
@@ -321,23 +301,6 @@ export function usePomodoroTracker({
     };
     const sessionTotalSeconds = getSessionDuration() * 60;
 
-    // Add debugging to see what's happening
-    // Log key transitions for debugging
-    if (
-      timeLeft === 0 ||
-      previousTimeLeft === 1 ||
-      timerRunning !== wasRunning
-    ) {
-      console.log("🔍 Debug state:", {
-        timeLeft,
-        previousTimeLeft,
-        timerRunning,
-        wasRunning,
-        sessionCompleted: sessionCompletedRef.current,
-        sessionType,
-      });
-    }
-
     const shouldUpdate =
       timerRunning !== wasRunning || // Timer state changed
       (timeLeft === 0 && previousTimeLeft > 0) || // Timer just completed
@@ -348,17 +311,6 @@ export function usePomodoroTracker({
         previousTimeLeft !== timeLeft); // Timer reset
 
     if (shouldUpdate) {
-      console.log("✅ Update triggered:", {
-        timerStateChanged: timerRunning !== wasRunning,
-        justCompleted: timeLeft === 0 && previousTimeLeft > 0,
-        stoppedAtZero: !timerRunning && wasRunning && timeLeft === 0,
-        newMinute:
-          timerRunning && timeLeft % 60 === 0 && timeLeft !== lastTimeLeft,
-        reset:
-          timeLeft === sessionTotalSeconds &&
-          !timerRunning &&
-          previousTimeLeft !== timeLeft,
-      });
       handleStatsUpdate();
     }
 

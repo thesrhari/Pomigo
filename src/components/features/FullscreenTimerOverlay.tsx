@@ -50,40 +50,38 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
       .padStart(2, "0")}`;
   };
 
-  // Get session-specific styling and content
+  // Get session-specific styling and content using only theme variables
   const getSessionConfig = () => {
     switch (sessionType) {
       case "focus":
         return {
           bgClass: "bg-background",
           textClass: "text-foreground",
-          title: "Focus Session",
+          title: "Focus",
           subtitle: currentSubject
             ? `Studying: ${currentSubject}`
-            : "Focus Time",
+            : "Time to focus",
         };
       case "shortBreak":
         return {
-          bgClass: "bg-blue-50 dark:bg-blue-950/20",
-          textClass: "text-blue-900 dark:text-blue-100",
+          bgClass: "bg-gradient-to-br from-background to-secondary",
+          textClass: "text-secondary-foreground",
           title: "Short Break",
-          subtitle: "Take a quick breather",
+          subtitle: "A quick breather.",
         };
       case "longBreak":
         return {
-          bgClass: "bg-purple-50 dark:bg-purple-950/20",
-          textClass: "text-purple-900 dark:text-purple-100",
+          bgClass: "bg-gradient-to-br from-background to-accent",
+          textClass: "text-accent-foreground",
           title: "Long Break",
-          subtitle: "Time to recharge",
+          subtitle: "Time to recharge.",
         };
       default:
         return {
           bgClass: "bg-background",
           textClass: "text-foreground",
-          title: "Focus Session",
-          subtitle: currentSubject
-            ? `Studying: ${currentSubject}`
-            : "Focus Time",
+          title: "Focus",
+          subtitle: "Focus Session",
         };
     }
   };
@@ -98,7 +96,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
     ): string => {
       switch (type) {
         case "focus":
-          return `Focus Session (Cycle ${cycleNum})`;
+          return `Focus (Cycle ${cycleNum})`;
         case "shortBreak":
           return "Short Break";
         case "longBreak":
@@ -106,6 +104,29 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
         default:
           return "Session";
       }
+    };
+
+    // Refactored indicator classes to use theme variables and improve readability
+    const indicatorClasses = {
+      base: "group relative w-3 h-3 rounded-full transition-all duration-300 cursor-help",
+      status: {
+        focus: {
+          completed: "bg-primary",
+          current: "bg-primary/80 ring-2 ring-primary/30 scale-125",
+        },
+        shortBreak: {
+          completed: "bg-secondary-foreground",
+          current:
+            "bg-secondary-foreground/80 ring-2 ring-secondary-foreground/30 scale-125",
+        },
+        longBreak: {
+          completed: "bg-accent-foreground",
+          current:
+            "bg-accent-foreground/80 ring-2 ring-accent-foreground/30 scale-125",
+        },
+        next: "bg-muted-foreground/20",
+        upcoming: "bg-muted-foreground/20",
+      },
     };
 
     return (
@@ -116,29 +137,21 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
           const isNext = index === currentSessionIndex + 1;
           const cycleNumber = Math.floor(index / 2) + 1;
 
+          const getIndicatorClass = () => {
+            if (isCompleted)
+              return indicatorClasses.status[session.type].completed;
+            if (isCurrent) return indicatorClasses.status[session.type].current;
+            if (isNext) return indicatorClasses.status.next;
+            return indicatorClasses.status.upcoming;
+          };
+
           return (
             <div
               key={index}
-              className={`group relative w-3 h-3 sm:w-4 sm:h-4 rounded-full transition-all duration-300 cursor-help ${
-                isCompleted
-                  ? session.type === "focus"
-                    ? "bg-primary"
-                    : session.type === "longBreak"
-                    ? "bg-purple-500"
-                    : "bg-blue-500"
-                  : isCurrent
-                  ? session.type === "focus"
-                    ? "bg-primary/80 ring-2 ring-primary/30 scale-125"
-                    : session.type === "longBreak"
-                    ? "bg-purple-500/80 ring-2 ring-purple-500/30 scale-125"
-                    : "bg-blue-500/80 ring-2 ring-blue-500/30 scale-125"
-                  : isNext
-                  ? "bg-muted-foreground/60 scale-110"
-                  : "bg-muted/40"
-              }`}
+              className={`${indicatorClasses.base} ${getIndicatorClass()}`}
             >
               {/* Tooltip */}
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-background/95 backdrop-blur-sm text-foreground text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 border">
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 px-3 py-2 bg-popover text-popover-foreground text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10 border">
                 {getSessionDisplayName(
                   session.type,
                   session.type === "focus" ? cycleNumber : undefined
@@ -151,7 +164,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                   : isNext
                   ? "Next"
                   : "Upcoming"}
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-background/95"></div>
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-x-4 border-t-4 border-transparent border-t-popover"></div>
               </div>
             </div>
           );
@@ -164,46 +177,27 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
     setShowControls(true);
     setCursorVisible(true);
 
-    // Clear existing timeouts
-    if (hideControlsTimeoutRef.current) {
+    if (hideControlsTimeoutRef.current)
       clearTimeout(hideControlsTimeoutRef.current);
-    }
-    if (hideCursorTimeoutRef.current) {
+    if (hideCursorTimeoutRef.current)
       clearTimeout(hideCursorTimeoutRef.current);
-    }
 
-    // Hide controls after 3 seconds of no mouse movement
-    hideControlsTimeoutRef.current = setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
-
-    // Hide cursor after 2 seconds of no mouse movement
-    hideCursorTimeoutRef.current = setTimeout(() => {
-      setCursorVisible(false);
-    }, 2000);
+    hideControlsTimeoutRef.current = setTimeout(
+      () => setShowControls(false),
+      3000
+    );
+    hideCursorTimeoutRef.current = setTimeout(
+      () => setCursorVisible(false),
+      2000
+    );
   };
 
-  const handleToggleTimer = () => {
-    onToggleTimer();
-    // Keep overlay open when toggling timer
-  };
-
-  const handleReset = () => {
-    onReset();
-    onClose(); // Close overlay when resetting
-  };
-
-  // Handle escape key to close overlay
+  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Space bar to pause/unpause
       if (event.key === " ") {
         event.preventDefault();
         onToggleTimer();
-      }
-      // Escape key to close overlay
-      if (event.key === "Escape") {
-        onClose();
       }
     };
 
@@ -229,29 +223,16 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
     };
   }, [isOpen]);
 
-  // Reset control visibility when overlay opens
+  // Reset control visibility when overlay opens/closes
   useEffect(() => {
     if (isOpen) {
-      setShowControls(true);
-      setCursorVisible(true);
-
-      // Set initial timeout
-      hideControlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-
-      hideCursorTimeoutRef.current = setTimeout(() => {
-        setCursorVisible(false);
-      }, 2000);
+      handleMouseMove(); // Trigger initial show
     }
-
     return () => {
-      if (hideControlsTimeoutRef.current) {
+      if (hideControlsTimeoutRef.current)
         clearTimeout(hideControlsTimeoutRef.current);
-      }
-      if (hideCursorTimeoutRef.current) {
+      if (hideCursorTimeoutRef.current)
         clearTimeout(hideCursorTimeoutRef.current);
-      }
     };
   }, [isOpen]);
 
@@ -259,15 +240,13 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className={`fixed inset-0 z-50 ${
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          className={`fixed inset-0 z-50 flex items-center justify-center transition-colors duration-500 ${
             sessionConfig.bgClass
-          } flex items-center justify-center transition-colors duration-500 ${
-            cursorVisible ? "cursor-default" : "cursor-none"
-          }`}
+          } ${cursorVisible ? "cursor-default" : "cursor-none"}`}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => {
             setShowControls(false);
@@ -275,65 +254,45 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
           }}
         >
           {/* Main Timer Display */}
-          <div className="text-center space-y-6 sm:space-y-8 select-none px-4">
-            {/* Session Indicators */}
+          <div className="text-center space-y-8 select-none px-4">
             <OverlaySessionIndicators />
-
-            {/* Session Title */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05, duration: 0.5 }}
-              className="space-y-2"
-            >
-              <div
-                className={`text-sm sm:text-base font-medium ${sessionConfig.textClass}/80`}
-              >
-                {sessionConfig.title}
-                {sessionType === "focus" && (
-                  <span className="ml-2 text-xs opacity-70">
-                    (Cycle {currentCycle})
-                  </span>
-                )}
-              </div>
-            </motion.div>
 
             {/* Timer */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              className={`text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold ${sessionConfig.textClass} tracking-tight leading-none`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
+              className={`text-8xl sm:text-9xl md:text-[10rem] lg:text-[12rem] font-bold ${sessionConfig.textClass} tracking-tight leading-none`}
             >
               {formatTime(timeLeft)}
             </motion.div>
 
             {/* Subtitle */}
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              className={`text-sm sm:text-base md:text-lg ${sessionConfig.textClass}/70 max-w-md mx-auto`}
+              transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}
+              className={`text-base md:text-lg opacity-60 ${sessionConfig.textClass} max-w-md mx-auto`}
             >
               {sessionConfig.subtitle}
             </motion.div>
           </div>
 
-          {/* Controls that appear on mouse movement */}
+          {/* Controls */}
           <AnimatePresence>
             {showControls && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.2 }}
-                className="absolute bottom-6 sm:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-3 sm:space-x-4"
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="absolute bottom-8 flex items-center space-x-4"
               >
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="lg"
-                  onClick={handleToggleTimer}
-                  className="bg-background/80 backdrop-blur-sm border-border hover:bg-accent hover:text-accent-foreground"
+                  onClick={onToggleTimer}
+                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75"
                 >
                   {timerRunning ? (
                     <Pause className="w-5 h-5 mr-2" />
@@ -343,10 +302,10 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                   {timerRunning ? "Pause" : "Resume"}
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="lg"
-                  onClick={handleReset}
-                  className="bg-background/80 backdrop-blur-sm border-border hover:bg-accent hover:text-accent-foreground"
+                  onClick={onReset}
+                  className="bg-background/50 text-foreground backdrop-blur-sm border rounded-full h-12 px-6 hover:bg-background/75"
                 >
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Reset & Exit
@@ -363,18 +322,13 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, delay: 0.1 }}
-                className="absolute top-6 sm:top-8 left-1/2 transform -translate-x-1/2 text-xs sm:text-sm text-muted-foreground/80 bg-background/70 backdrop-blur-md px-4 py-2 rounded-lg border"
+                className="absolute top-8 text-sm text-muted-foreground/80 bg-background/70 backdrop-blur-md px-4 py-2 rounded-lg border"
               >
-                <span className="hidden sm:inline">Press </span>
+                Press{" "}
                 <kbd className="px-2 py-1 bg-muted/80 rounded text-xs font-mono">
                   SPACE
-                </kbd>
-                <span className="hidden sm:inline"> to pause/resume • </span>
-                <span className="sm:hidden"> • </span>
-                <kbd className="px-2 py-1 bg-muted/80 rounded text-xs font-mono">
-                  ESC
-                </kbd>
-                <span className="hidden sm:inline"> to exit</span>
+                </kbd>{" "}
+                to toggle timer
               </motion.div>
             )}
           </AnimatePresence>

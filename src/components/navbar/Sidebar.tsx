@@ -10,6 +10,8 @@ import {
   Users,
   User,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 const sidebarItems = [
@@ -19,10 +21,21 @@ const sidebarItems = [
   { id: "social", label: "Social Hub", icon: Users, path: "/social" },
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+  // Use internal state if no external state is provided
+  const [internalSidebarOpen, setInternalSidebarOpen] =
+    useState<boolean>(false);
+
+  const sidebarOpen = isOpen ?? internalSidebarOpen;
+  const setSidebarOpen = onClose ? () => onClose() : setInternalSidebarOpen;
 
   const handleNavigation = (path: string) => {
     router.push(path);
@@ -31,6 +44,16 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
+      {/* Mobile Menu Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="lg:hidden fixed top-4 left-4 z-40 p-2"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </Button>
+
       {/* Sidebar */}
       <div
         className={`${
