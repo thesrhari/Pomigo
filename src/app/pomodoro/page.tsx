@@ -35,10 +35,9 @@ interface SessionStatus {
 }
 
 // For type safety with our Web Worker messages
-type WorkerCommand = "start" | "stop";
 interface WorkerMessage {
-  command: WorkerCommand;
-  ms?: number;
+  command: "start" | "stop";
+  duration?: number; // Corrected to use 'duration' which the worker expects
 }
 
 export default function PomodoroPage() {
@@ -76,44 +75,74 @@ export default function PomodoroPage() {
   const previousFocusTimeRef = useRef(0);
 
   // --- START: WEB WORKER INTEGRATION ---
-  // Ref to hold the worker instance so it persists across re-renders
   const workerRef = useRef<Worker | null>(null);
 
-  // Effect to initialize and clean up the worker. Runs only once on mount.
   useEffect(() => {
-    // Create the worker instance. The path is relative to the `public` directory.
     workerRef.current = new Worker("/timer.worker.js");
 
     // Set up the listener for messages coming FROM the worker
-    workerRef.current.onmessage = (event: MessageEvent<{ type: string }>) => {
-      // When the worker sends a 'tick', decrement the time
-      if (event.data.type === "tick") {
-        setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    workerRef.current.onmessage = (
+      event: MessageEvent<{ type: string; timeLeft?: number }>
+    ) => {
+      const { type, timeLeft: workerTimeLeft } = event.data;
+
+      // The worker now sends the exact time left. No need for manual decrementing.
+      if (type === "tick" && workerTimeLeft !== undefined) {
+        setTimeLeft(workerTimeLeft);
+      }
+      // This is the new, reliable trigger for when a session ends.
+      else if (type === "sessionEnd") {
+        // --- All session-ending logic is moved here ---
+        if (pomodoroSettings) {
+          playSound(
+            pomodoroSettings.selectedSoundId,
+            pomodoroSettings.soundEnabled
+          );
+        }
+
+        setTimerRunning(false);
+        setFullscreenOverlayOpen(false);
+        isPausedRef.current = false;
+
+        setCompletedSessions((prev) => {
+          const newCompleted = [...prev];
+          const currentIndex =
+            (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
+          newCompleted[currentIndex] = {
+            type: currentSessionType,
+            completed: true,
+          };
+          return newCompleted;
+        });
+
+        const nextSessionType = getNextSessionType();
+        if (
+          currentCycle >= (pomodoroSettings?.iterations || 1) &&
+          currentSessionType !== "study"
+        ) {
+          return;
+        }
+
+        setCurrentSessionType(nextSessionType);
+
+        if (currentSessionType !== "study" && nextSessionType === "study") {
+          setCurrentCycle((prev) => prev + 1);
+        }
+
+        const nextDuration = getSessionDuration(nextSessionType);
+        setTimeLeft(nextDuration * 60);
       }
     };
 
-    // Cleanup: Terminate the worker when the component unmounts to prevent memory leaks
     return () => {
       workerRef.current?.terminate();
     };
-  }, []); // Empty dependency array ensures this runs only once.
+    // Add dependencies to ensure the onmessage handler doesn't use stale state
+  }, [pomodoroSettings, playSound, currentCycle, currentSessionType]);
 
-  // Effect to send commands TO the worker when the timer's running state changes.
-  useEffect(() => {
-    if (!workerRef.current) return;
-
-    if (timerRunning) {
-      // Tell the worker to start its interval
-      workerRef.current.postMessage({
-        command: "start",
-        ms: 1000,
-      } as WorkerMessage);
-    } else {
-      // Tell the worker to stop its interval
-      workerRef.current.postMessage({ command: "stop" } as WorkerMessage);
-    }
-  }, [timerRunning]);
-  // --- END: WEB WORKER INTEGRATION ---
+  // --- REMOVED THE CONFLICTING useEffect THAT WAS HERE ---
+  // The logic for sending messages to the worker is now correctly
+  // handled within handlePlayPause, handleReset, and handleSkipBreak.
 
   const isPomodoroSequenceActive =
     currentCycle > 1 ||
@@ -190,6 +219,9 @@ export default function PomodoroPage() {
   const handleSkipBreak = () => {
     if (currentSessionType === "study") return; // Only allow skipping breaks
 
+    // Explicitly tell the worker to stop its current timer
+    workerRef.current?.postMessage({ command: "stop" });
+
     setTimerRunning(false);
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
@@ -234,58 +266,6 @@ export default function PomodoroPage() {
     }
   }, [subjects, currentSubject]);
 
-  // Effect to handle session completion when timer reaches zero
-  useEffect(() => {
-    // This now only triggers when a session ends, the countdown is handled by the worker.
-    if (timeLeft === 0 && timerRunning) {
-      if (pomodoroSettings) {
-        playSound(
-          pomodoroSettings.selectedSoundId,
-          pomodoroSettings.soundEnabled
-        );
-      }
-
-      setTimerRunning(false); // This will stop the worker via the other useEffect
-      setFullscreenOverlayOpen(false);
-      isPausedRef.current = false;
-
-      setCompletedSessions((prev) => {
-        const newCompleted = [...prev];
-        const currentIndex =
-          (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
-        newCompleted[currentIndex] = {
-          type: currentSessionType,
-          completed: true,
-        };
-        return newCompleted;
-      });
-
-      const nextSessionType = getNextSessionType();
-      if (
-        currentCycle >= (pomodoroSettings?.iterations || 1) &&
-        currentSessionType !== "study"
-      ) {
-        return;
-      }
-
-      setCurrentSessionType(nextSessionType);
-
-      if (currentSessionType !== "study" && nextSessionType === "study") {
-        setCurrentCycle((prev) => prev + 1);
-      }
-
-      const nextDuration = getSessionDuration(nextSessionType);
-      setTimeLeft(nextDuration * 60);
-    }
-  }, [
-    timeLeft,
-    timerRunning, // Keep timerRunning to know if the countdown was active
-    currentSessionType,
-    currentCycle,
-    pomodoroSettings,
-    playSound,
-  ]);
-
   // Update timer when settings change
   useEffect(() => {
     if (!pomodoroSettings) return;
@@ -327,13 +307,22 @@ export default function PomodoroPage() {
   };
 
   const handlePlayPause = () => {
-    // This logic now controls the worker indirectly by toggling `timerRunning` state
     if (timerRunning) {
+      // Timer is running, so we want to pause it
       isPausedRef.current = true;
       setTimerRunning(false);
+      // Explicitly tell the worker to stop
+      workerRef.current?.postMessage({ command: "stop" } as WorkerMessage);
     } else {
+      // Timer is paused or stopped, so we want to start it
       isPausedRef.current = false;
       setTimerRunning(true);
+      // Tell the worker to start and give it the current duration
+      workerRef.current?.postMessage({
+        command: "start",
+        duration: timeLeft,
+      } as WorkerMessage);
+
       if (timeLeft === getSessionDuration(currentSessionType) * 60) {
         setFullscreenOverlayOpen(true);
       }
@@ -341,11 +330,14 @@ export default function PomodoroPage() {
   };
 
   const handleReset = () => {
+    // Explicitly tell the worker to stop its current timer
+    workerRef.current?.postMessage({ command: "stop" } as WorkerMessage);
+
     setCurrentSessionType("study");
     setCurrentCycle(1);
     setCompletedSessions([]);
     setTimeLeft(pomodoroSettings?.focusTime * 60 || 1500);
-    setTimerRunning(false); // This will also stop the worker
+    setTimerRunning(false);
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
   };
