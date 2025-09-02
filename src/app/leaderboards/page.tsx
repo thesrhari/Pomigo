@@ -12,13 +12,13 @@ import {
   Target,
   Crown,
   Award,
-  Loader2,
   UserPlus,
 } from "lucide-react";
 import {
   useLeaderboardData,
   LeaderboardFriend,
 } from "@/lib/hooks/useLeaderboardData";
+import { LeaderboardSkeleton } from "./components/LeaderboardSkeleton"; // Import the new skeleton component
 
 // --- NEW AVATAR COMPONENT ---
 const Avatar = ({ avatarUrl }: { avatarUrl: string | null | undefined }) => {
@@ -144,13 +144,13 @@ export default function MinimalLeaderboard() {
       ? (currentUserRank / totalRankedUsers) * 100
       : 0;
 
+  // --- MODIFIED SECTION ---
+  // Display the skeleton component while loading
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background p-4 flex justify-center items-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LeaderboardSkeleton />;
   }
+  // --- END OF MODIFIED SECTION ---
+
   if (error) {
     return (
       <div className="min-h-screen bg-background p-4 flex justify-center items-center">

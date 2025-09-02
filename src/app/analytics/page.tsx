@@ -1,6 +1,12 @@
-// app/analytics/page.tsx
 "use client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -10,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { useAnalyticsData, TimeFilter } from "@/lib/hooks/useAnalyticsData";
 import {
-  Loader2,
   Filter,
   Timer,
   Target,
@@ -21,7 +26,11 @@ import {
   PieChart as PieChartIcon,
   Moon,
   Sun,
-  Sparkles,
+  CalendarCheck,
+  BookOpenCheck,
+  Trophy,
+  Zap,
+  Clock,
 } from "lucide-react";
 import {
   PieChart,
@@ -30,22 +39,17 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  format,
-  startOfWeek,
-  eachDayOfInterval,
-  getYear,
-  endOfWeek,
-} from "date-fns";
-import { useState } from "react";
 
-// Helper to format minutes into a more readable string like "1h 30m" or "45m"
+import { StatCard } from "./components/StatCard";
+import { PersonaCard } from "./components/PersonaCard";
+import { PlaceholderCard } from "./components/PlaceholderCard";
+import { ContributionGraph } from "./components/ContributionGraph";
+import { FunStatsData } from "@/lib/hooks/useAnalyticsData";
+// --- NEW ---
+import { AnalyticsPageSkeleton } from "./components/AnalyticsPageSkeleton";
+
+// ... (rest of the helper functions: formatMinutes, formatHour)
+
 const formatMinutes = (minutes: number) => {
   if (minutes < 1) return "0m";
   const hours = Math.floor(minutes / 60);
@@ -56,215 +60,10 @@ const formatMinutes = (minutes: number) => {
   return `${remainingMinutes}m`;
 };
 
-// A reusable card for displaying key stats
-const StatCard = ({
-  title,
-  value,
-  icon: Icon,
-  color,
-}: {
-  title: string;
-  value: string;
-  icon: React.ElementType;
-  color: string;
-}) => (
-  <Card>
-    <CardContent className="p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold mt-1">{value}</p>
-        </div>
-        <div
-          className="p-3 rounded-lg"
-          style={{ backgroundColor: `hsla(var(${color}-hsl), 0.1)` }}
-        >
-          <Icon
-            className="w-6 h-6"
-            style={{ color: `hsl(var(${color}-hsl))` }}
-          />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-// 2. Create a new, separate component for our Fun Fact card
-const FunFactCard = ({
-  title,
-  description,
-  icon: Icon,
-  color,
-}: {
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  color: string;
-}) => (
-  <Card className="flex flex-col justify-center items-center text-center p-6 h-full">
-    <div
-      className="p-4 rounded-full mb-4"
-      style={{ backgroundColor: `hsla(var(${color}-hsl), 0.1)` }}
-    >
-      <Icon className="w-8 h-8" style={{ color: `hsl(var(${color}-hsl))` }} />
-    </div>
-    <p className="text-xl font-bold">{title}</p>
-    <p className="text-sm text-muted-foreground mt-1">{description}</p>
-  </Card>
-);
-
-const PlaceholderCard = () => (
-  <Card className="flex flex-col justify-center items-center text-center p-6 h-full border-dashed">
-    <div className="p-4 rounded-full mb-4 bg-muted">
-      <Sparkles className="w-8 h-8 text-muted-foreground" />
-    </div>
-    <p className="text-xl font-bold">Discover Your Persona</p>
-    <p className="text-sm text-muted-foreground mt-1">
-      Complete more study sessions to unlock this fun stat!
-    </p>
-  </Card>
-);
-
-const ContributionGraph = ({
-  data,
-  year,
-}: {
-  data: { date: string; count: number }[];
-  year: number;
-}) => {
-  const today = new Date();
-  const dataMap = new Map(data.map((item) => [item.date, item.count]));
-
-  const maxCount = data.length > 0 ? Math.max(...data.map((d) => d.count)) : 1;
-
-  const getColor = (count: number) => {
-    if (count <= 0) return "var(--border)";
-    const intensity = Math.min(count / maxCount, 1);
-    if (intensity > 0.75) return "var(--chart-1)";
-    if (intensity > 0.5) return "var(--chart-2)";
-    if (intensity > 0.25) return "var(--chart-3)";
-    return "var(--chart-4)";
-  };
-
-  const startDate = startOfWeek(new Date(year, 0, 1), { weekStartsOn: 1 });
-  const endDate = endOfWeek(new Date(year, 11, 31), { weekStartsOn: 1 });
-  const dates = eachDayOfInterval({ start: startDate, end: endDate });
-
-  const weeks = [];
-  for (let i = 0; i < dates.length; i += 7) {
-    weeks.push(dates.slice(i, i + 7));
-  }
-
-  const monthPositions = weeks.reduce((acc, week, colIndex) => {
-    const firstDayOfMonth = week.find((day) => day.getDate() === 1);
-    if (firstDayOfMonth) {
-      acc.push({
-        month: format(firstDayOfMonth, "MMM"),
-        colIndex,
-      });
-    }
-    return acc;
-  }, [] as { month: string; colIndex: number }[]);
-
-  const CUBE_SIZE = 10;
-  const CUBE_GAP = 3;
-
-  return (
-    <div className="flex flex-col items-center w-full">
-      <div className="w-full overflow-x-auto">
-        <div className="flex">
-          <div
-            className="flex flex-col text-xs text-muted-foreground pr-3 pt-5"
-            style={{ gap: `${CUBE_GAP}px` }}
-          >
-            <div className="h-2.5 flex items-center">Mon</div>
-            <div className="h-2.5" />
-            <div className="h-2.5 flex items-center">Wed</div>
-            <div className="h-2.5" />
-            <div className="h-2.5 flex items-center">Fri</div>
-          </div>
-          <div className="flex flex-col">
-            <div className="relative h-5">
-              {monthPositions.map(({ month, colIndex }) => (
-                <span
-                  key={`${month}-${colIndex}`}
-                  className="absolute text-xs text-muted-foreground"
-                  style={{ left: `${colIndex * (CUBE_SIZE + CUBE_GAP)}px` }}
-                >
-                  {month}
-                </span>
-              ))}
-            </div>
-            <div className="flex" style={{ gap: `${CUBE_GAP}px` }}>
-              <TooltipProvider>
-                {weeks.map((week, weekIndex) => (
-                  <div
-                    key={weekIndex}
-                    className="flex flex-col"
-                    style={{ gap: `${CUBE_GAP}px` }}
-                  >
-                    {week.map((day) => {
-                      const dateStr = format(day, "yyyy-MM-dd");
-                      const count = dataMap.get(dateStr) || 0;
-                      return (
-                        <Tooltip key={dateStr} delayDuration={100}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="w-2.5 h-2.5 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  day > today || getYear(day) !== year
-                                    ? "transparent"
-                                    : getColor(count),
-                              }}
-                            />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              {count > 0
-                                ? formatMinutes(count)
-                                : "No study activity"}{" "}
-                              on {format(day, "MMM d, yyyy")}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                ))}
-              </TooltipProvider>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex justify-end items-center text-xs text-muted-foreground mt-2 gap-2 w-full">
-        <span>Less</span>
-        <div className="flex gap-1">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--border)" }}
-          />
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-4)" }}
-          />
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-3)" }}
-          />
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-2)" }}
-          />
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-1)" }}
-          />
-        </div>
-        <span>More</span>
-      </div>
-    </div>
-  );
+const formatHour = (hour: number) => {
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  const ampm = hour < 12 ? "am" : "pm";
+  return `${h}${ampm}`;
 };
 
 export default function AnalyticsPage() {
@@ -277,13 +76,9 @@ export default function AnalyticsPage() {
     contributionYear
   );
 
+  // --- MODIFIED LOADING STATE ---
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading analytics...</p>
-      </div>
-    );
+    return <AnalyticsPageSkeleton />;
   }
 
   if (error || !data) {
@@ -295,34 +90,28 @@ export default function AnalyticsPage() {
     );
   }
 
-  const {
-    totalStudyTime,
-    totalStudySessions,
-    totalBreakTime,
-    totalTimePerSubject,
-    currentStreak,
-    bestStreak,
-    contributionData,
-    totalContributionTimeForYear,
-    funFact, // 3. Destructure the new funFact data
-  } = data;
+  const { productiveHours, funStats } = data;
 
-  // 4. Prepare the content for the fun fact card
-  const funFactContent = funFact
+  const personaContent = productiveHours
     ? {
-        title: funFact.isEarlyBird ? "Early Bird" : "Night Owl",
-        description: `You're most productive around ${
-          funFact.hour % 12 === 0 ? 12 : funFact.hour % 12
-        }${funFact.hour < 12 ? "am" : "pm"}!`,
-        icon: funFact.isEarlyBird ? Sun : Moon,
-        color: funFact.isEarlyBird ? "--chart-3" : "--chart-5",
+        title: productiveHours.isEarlyBird ? "Early Bird" : "Night Owl",
+        description: `You're most productive between ${formatHour(
+          productiveHours.start
+        )} and ${formatHour(productiveHours.end)}!`,
+        icon: productiveHours.isEarlyBird ? Sun : Moon,
       }
     : null;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+    // ... (rest of the component remains unchanged)
+    <div className="space-y-8 p-4 md:p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">
+            Your study habits, visualized.
+          </p>
+        </div>
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select
@@ -342,30 +131,87 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* --- FILTERABLE SECTION --- */}
+      <Card>
+        <CardContent className="p-6 space-y-6">
+          <FilterableContent data={data} />
+        </CardContent>
+      </Card>
+
+      {/* --- INSIGHTS & ACTIVITY SECTION --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <ContributionSection
+            contributionData={data.contributionData}
+            totalContributionTimeForYear={data.totalContributionTimeForYear}
+            contributionYear={contributionYear}
+            setContributionYear={setContributionYear}
+            availableYears={availableYears}
+          />
+          <FunStatsSection funStats={funStats} />
+        </div>
+
+        <div className="space-y-6">
+          <StreakSection
+            currentStreak={data.currentStreak}
+            bestStreak={data.bestStreak}
+          />
+          {personaContent ? (
+            <PersonaCard
+              title={personaContent.title}
+              description={personaContent.description}
+              icon={personaContent.icon}
+            />
+          ) : (
+            <PlaceholderCard message="Study more to unlock your productivity persona!" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ... (All sub-components like FilterableContent, FunStatsSection, etc., remain unchanged)
+const FilterableContent = ({
+  data,
+}: {
+  data: NonNullable<ReturnType<typeof useAnalyticsData>["data"]>;
+}) => {
+  const {
+    totalStudyTime,
+    totalStudySessions,
+    averageSessionLength,
+    previousPeriodData,
+    totalTimePerSubject,
+    totalBreakTime,
+    totalShortBreakTime,
+    totalLongBreakTime,
+  } = data;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard
           title="Total Study Time"
           value={formatMinutes(totalStudyTime)}
           icon={Brain}
           color="--primary"
+          comparisonValue={previousPeriodData?.totalStudyTime}
+          numericValue={totalStudyTime}
         />
         <StatCard
           title="Focus Sessions"
           value={totalStudySessions.toString()}
           icon={Target}
           color="--chart-2"
+          comparisonValue={previousPeriodData?.totalStudySessions}
+          numericValue={totalStudySessions}
         />
         <StatCard
-          title="Current Streak"
-          value={`${currentStreak} days`}
-          icon={Flame}
-          color="--chart-5"
-        />
-        <StatCard
-          title="Best Streak"
-          value={`${bestStreak} days`}
-          icon={Award}
-          color="--chart-3"
+          title="Avg. Session Length"
+          value={formatMinutes(averageSessionLength)}
+          icon={Clock}
+          color="--chart-4"
         />
       </div>
 
@@ -430,7 +276,7 @@ export default function AnalyticsPage() {
                   <Coffee className="w-4 h-4 mr-2" /> Short Breaks
                 </span>
                 <span className="font-medium">
-                  {formatMinutes(data.totalShortBreakTime)}
+                  {formatMinutes(totalShortBreakTime)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -438,11 +284,10 @@ export default function AnalyticsPage() {
                   <Award className="w-4 h-4 mr-2" /> Long Breaks
                 </span>
                 <span className="font-medium">
-                  {formatMinutes(data.totalLongBreakTime)}
+                  {formatMinutes(totalLongBreakTime)}
                 </span>
               </div>
             </div>
-
             <div className="mt-4">
               <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
                 <PieChartIcon className="w-4 h-4 mr-2" /> Study vs. Break Ratio
@@ -481,58 +326,162 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
-
-      <div className="border-t" />
-
-      {/* 5. Update the layout for the activity and fun fact section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-start justify-between">
-            <div>
-              <CardTitle>Your Study Activity</CardTitle>
-              <p className="text-sm text-muted-foreground pt-1">
-                {formatMinutes(totalContributionTimeForYear)} studied in{" "}
-                {contributionYear}
-              </p>
-            </div>
-            {availableYears.length > 0 && (
-              <Select
-                value={contributionYear.toString()}
-                onValueChange={(value) => setContributionYear(parseInt(value))}
-              >
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </CardHeader>
-          <CardContent>
-            <ContributionGraph
-              data={contributionData}
-              year={contributionYear}
-            />
-          </CardContent>
-        </Card>
-
-        {/* The new FunFactCard will render here beside the graph */}
-        {funFactContent ? (
-          <FunFactCard
-            title={funFactContent.title}
-            description={funFactContent.description}
-            icon={funFactContent.icon}
-            color={funFactContent.color}
-          />
-        ) : (
-          <PlaceholderCard />
-        )}
-      </div>
-    </div>
+    </>
   );
-}
+};
+
+const FunStatsSection = ({ funStats }: { funStats: FunStatsData | null }) => {
+  if (!funStats) {
+    return (
+      <PlaceholderCard
+        title="Insights Locked"
+        message="More study data is needed to reveal your habits."
+      />
+    );
+  }
+
+  const { powerHour, mostProductiveDay, subjectDeepDive } = funStats;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Deeper Insights</CardTitle>
+        <CardDescription>
+          All-time stats about your unique study patterns.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center font-semibold mb-2">
+            <Zap className="w-5 h-5 mr-2 text-yellow-500" /> Power Hour
+          </div>
+          {powerHour ? (
+            <p>
+              Your most focused hour is around{" "}
+              <span className="font-bold">{formatHour(powerHour.hour)}</span>,
+              where you've studied a total of{" "}
+              {formatMinutes(powerHour.totalTime)}.
+            </p>
+          ) : (
+            <p>Not enough data yet.</p>
+          )}
+        </div>
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center font-semibold mb-2">
+            <CalendarCheck className="w-5 h-5 mr-2 text-blue-500" /> Most
+            Productive Day
+          </div>
+          {mostProductiveDay ? (
+            <p>
+              You get the most done on{" "}
+              <span className="font-bold">{mostProductiveDay.day}s</span>, with
+              a total of {formatMinutes(mostProductiveDay.totalTime)} studied.
+            </p>
+          ) : (
+            <p>Not enough data yet.</p>
+          )}
+        </div>
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center font-semibold mb-2">
+            <BookOpenCheck className="w-5 h-5 mr-2 text-green-500" /> Go-To
+            Subject
+          </div>
+          {subjectDeepDive?.goToSubject ? (
+            <p>
+              You've started a session on{" "}
+              <span className="font-bold">
+                {subjectDeepDive.goToSubject.name}
+              </span>{" "}
+              more than any other subject ({subjectDeepDive.goToSubject.count}{" "}
+              times).
+            </p>
+          ) : (
+            <p>Not enough data yet.</p>
+          )}
+        </div>
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center font-semibold mb-2">
+            <Trophy className="w-5 h-5 mr-2 text-amber-600" /> Endurance Subject
+          </div>
+          {subjectDeepDive?.enduranceSubject ? (
+            <p>
+              Your longest average sessions are in{" "}
+              <span className="font-bold">
+                {subjectDeepDive.enduranceSubject.name}
+              </span>{" "}
+              at {formatMinutes(subjectDeepDive.enduranceSubject.avgLength)} per
+              session.
+            </p>
+          ) : (
+            <p>Not enough data yet.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const StreakSection = ({
+  currentStreak,
+  bestStreak,
+}: {
+  currentStreak: number;
+  bestStreak: number;
+}) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Streaks</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="flex justify-between items-center text-sm">
+        <span className="text-muted-foreground flex items-center">
+          <Flame className="w-4 h-4 mr-2 text-orange-500" /> Current Streak
+        </span>
+        <span className="font-medium">{currentStreak} days</span>
+      </div>
+      <div className="flex justify-between items-center text-sm">
+        <span className="text-muted-foreground flex items-center">
+          <Award className="w-4 h-4 mr-2 text-yellow-500" /> Best Streak
+        </span>
+        <span className="font-medium">{bestStreak} days</span>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const ContributionSection = (props: any) => (
+  <Card>
+    <CardHeader className="flex flex-row items-start justify-between">
+      <div>
+        <CardTitle>Your Study Activity</CardTitle>
+        <p className="text-sm text-muted-foreground pt-1">
+          {formatMinutes(props.totalContributionTimeForYear)} studied in{" "}
+          {props.contributionYear}
+        </p>
+      </div>
+      {props.availableYears.length > 0 && (
+        <Select
+          value={props.contributionYear.toString()}
+          onValueChange={(value) => props.setContributionYear(parseInt(value))}
+        >
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {props.availableYears.map((year: number) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </CardHeader>
+    <CardContent>
+      <ContributionGraph
+        data={props.contributionData}
+        year={props.contributionYear}
+      />
+    </CardContent>
+  </Card>
+);

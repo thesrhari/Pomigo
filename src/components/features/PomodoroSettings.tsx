@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
 import { Minus, Plus } from "lucide-react";
-import { SoundSelector } from "@/components/features/SoundSelector"; // SoundSelector is now imported
+import { SoundSelector } from "@/components/features/SoundSelector";
 
 // The settings type is expanded to include sound options
 interface PomodoroSettingsType {
@@ -23,8 +23,8 @@ interface PomodoroSettingsType {
   longBreakEnabled: boolean;
   longBreakInterval: number;
   iterations: number;
-  soundEnabled: boolean; // Added
-  selectedSoundId: number | null; // Added
+  soundEnabled: boolean;
+  selectedSoundId: number | null;
 }
 
 interface PomodoroSettingsProps {
@@ -44,6 +44,7 @@ interface NumberInputProps {
   disabled?: boolean;
   unit?: string;
   description?: string;
+  id: string; // Added for accessibility
 }
 
 const NumberInput: React.FC<NumberInputProps> = ({
@@ -56,7 +57,14 @@ const NumberInput: React.FC<NumberInputProps> = ({
   disabled = false,
   unit = "min",
   description,
+  id,
 }) => {
+  const [inputValue, setInputValue] = useState(value.toString());
+
+  useEffect(() => {
+    setInputValue(value.toString());
+  }, [value]);
+
   const handleDecrement = () => {
     const newValue = Math.max(min, value - step);
     onChange(newValue);
@@ -67,24 +75,34 @@ const NumberInput: React.FC<NumberInputProps> = ({
     onChange(newValue);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = parseInt(e.target.value);
-    if (!isNaN(inputValue)) {
-      const clampedValue = Math.max(min, Math.min(max, inputValue));
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    const parsedValue = parseInt(inputValue, 10);
+    if (!isNaN(parsedValue)) {
+      const clampedValue = Math.max(min, Math.min(max, parsedValue));
       onChange(clampedValue);
+      setInputValue(clampedValue.toString());
+    } else {
+      // If input is not a valid number, revert to the original value
+      setInputValue(value.toString());
     }
   };
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label className="text-right">{label}</Label>
-        <div className="col-span-3 flex items-center space-x-2">
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 md:items-center gap-x-4 gap-y-2">
+        <Label htmlFor={id} className="md:text-right">
+          {label}
+        </Label>
+        <div className="col-span-1 md:col-span-2 flex items-center space-x-3">
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="h-8 w-8 shrink-0 rounded-full"
+            className="h-9 w-9 shrink-0 rounded-full"
             onClick={handleDecrement}
             disabled={disabled || value <= min}
           >
@@ -92,35 +110,36 @@ const NumberInput: React.FC<NumberInputProps> = ({
           </Button>
           <div className="flex-1 text-center">
             <Input
+              id={id}
               type="number"
-              value={value}
+              value={inputValue}
               onChange={handleInputChange}
+              onBlur={handleBlur}
               disabled={disabled}
               min={min}
               max={max}
               step={step}
-              className="text-center [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="text-center w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="h-8 w-8 shrink-0 rounded-full"
+            className="h-9 w-9 shrink-0 rounded-full"
             onClick={handleIncrement}
             disabled={disabled || value >= max}
           >
             <Plus className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground w-12 text-left">
+          <span className="text-sm text-muted-foreground w-14 text-left">
             {unit}
           </span>
         </div>
       </div>
       {description && (
-        <div className="grid grid-cols-4 gap-4">
-          <div></div>
-          <div className="col-span-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4">
+          <div className="md:col-start-2 md:col-span-2">
             <p className="text-xs text-muted-foreground">{description}</p>
           </div>
         </div>
@@ -139,7 +158,6 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
     useState<PomodoroSettingsType>(settings);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Sync local state when settings prop changes
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
@@ -158,7 +176,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
   };
 
   const handleCancel = () => {
-    setLocalSettings(settings); // Reset to original values
+    setLocalSettings(settings);
     onClose();
   };
 
@@ -174,17 +192,18 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle>Pomodoro Settings</DialogTitle>
           <DialogDescription>
-            Customize your focus sessions and break times.
+            Customize your focus sessions and break times for optimal
+            productivity.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 py-4">
-          {/* Focus Time */}
+        <div className="grid gap-8 py-6">
           <NumberInput
+            id="focusTime"
             label="Focus Time"
             value={localSettings.focusTime}
             onChange={(value) => updateLocalSetting("focusTime", value)}
@@ -196,8 +215,8 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
             description="Duration of each focus session"
           />
 
-          {/* Short Break */}
           <NumberInput
+            id="shortBreak"
             label="Short Break"
             value={localSettings.shortBreak}
             onChange={(value) => updateLocalSetting("shortBreak", value)}
@@ -206,15 +225,17 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
             step={2}
             disabled={isLoading}
             unit="min"
-            description="Duration of regular breaks between focus sessions"
+            description="Duration of regular breaks"
           />
 
-          {/* Long Break Toggle */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Long Break</Label>
-              <div className="col-span-3 flex items-center space-x-2">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 md:items-center gap-x-4 gap-y-2">
+              <Label htmlFor="longBreakEnabled" className="md:text-right">
+                Long Break
+              </Label>
+              <div className="col-span-1 md:col-span-2 flex items-center space-x-3">
                 <Switch
+                  id="longBreakEnabled"
                   checked={localSettings.longBreakEnabled}
                   onCheckedChange={(checked) =>
                     updateLocalSetting("longBreakEnabled", checked)
@@ -226,50 +247,49 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div></div>
-              <div className="col-span-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4">
+              <div className="md:col-start-2 md:col-span-2">
                 <p className="text-xs text-muted-foreground">
-                  Enable longer breaks at regular intervals
+                  Enable longer breaks after a few cycles.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Long Break Duration - only show when enabled */}
           {localSettings.longBreakEnabled && (
-            <NumberInput
-              label="Long Break Duration"
-              value={localSettings.longBreak}
-              onChange={(value) => updateLocalSetting("longBreak", value)}
-              min={5}
-              max={180}
-              step={5}
-              disabled={isLoading}
-              unit="min"
-              description="Duration of extended breaks"
-            />
+            <>
+              <NumberInput
+                id="longBreakDuration"
+                label="Long Break Duration"
+                value={localSettings.longBreak}
+                onChange={(value) => updateLocalSetting("longBreak", value)}
+                min={5}
+                max={180}
+                step={5}
+                disabled={isLoading}
+                unit="min"
+                description="Duration of extended breaks"
+              />
+
+              <NumberInput
+                id="longBreakAfter"
+                label="Long Break After"
+                value={localSettings.longBreakInterval}
+                onChange={(value) =>
+                  updateLocalSetting("longBreakInterval", value)
+                }
+                min={2}
+                max={10}
+                step={1}
+                disabled={isLoading}
+                unit="cycles"
+                description="Number of focus sessions before a long break"
+              />
+            </>
           )}
 
-          {/* Long Break Interval - only show when long break is enabled */}
-          {localSettings.longBreakEnabled && (
-            <NumberInput
-              label="Long Break After"
-              value={localSettings.longBreakInterval}
-              onChange={(value) =>
-                updateLocalSetting("longBreakInterval", value)
-              }
-              min={2}
-              max={10}
-              step={1}
-              disabled={isLoading}
-              unit="cycles"
-              description="Number of focus sessions before a long break"
-            />
-          )}
-
-          {/* Number of Cycles */}
           <NumberInput
+            id="totalCycles"
             label="Total Cycles"
             value={localSettings.iterations}
             onChange={(value) => updateLocalSetting("iterations", value)}
@@ -278,11 +298,10 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
             step={1}
             disabled={isLoading}
             unit="cycles"
-            description="Total number of focus-break cycles to complete"
+            description="Total number of focus-break cycles"
           />
 
-          {/* Sound settings are now included */}
-          <div className="border-t pt-6 mt-2">
+          <div className="border-t pt-8 mt-2">
             <SoundSelector
               soundEnabled={localSettings.soundEnabled}
               selectedSoundId={localSettings.selectedSoundId}
@@ -297,7 +316,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
           <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
             Cancel
           </Button>

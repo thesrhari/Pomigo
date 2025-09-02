@@ -12,10 +12,11 @@ import {
 import { PomodoroSettings } from "@/components/features/PomodoroSettings";
 import { SubjectManager } from "@/components/features/SubjectManager";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
+import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
 import { Play, Pause, Settings, RotateCcw, SkipForward } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
-import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications"; // Import the audio hook
+import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -418,16 +419,9 @@ export default function PomodoroPage() {
     );
   };
 
-  // Loading and Error States (Unchanged)
+  // Loading and Error States (Updated)
   if (loading) {
-    return (
-      <div className="max-w-xl mx-auto flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading your pomodoro...</p>
-        </div>
-      </div>
-    );
+    return <PomodoroSkeleton />;
   }
 
   if (error) {
@@ -449,7 +443,15 @@ export default function PomodoroPage() {
   // JSX Return (Unchanged)
   return (
     <>
-      <div className="max-w-xl mx-auto space-y-8 px-4 py-24 md:py-24">
+      <div className="max-w-xl mx-auto space-y-8 px-4 py-4">
+        <div className="text-center">
+          <h1 className="!text-4xl font-bold tracking-tight text-foreground !sm:text-5xl">
+            Pomodoro Timer
+          </h1>
+          <p className="mt-3 text-base text-muted-foreground sm:mt-4 !sm:text-lg">
+            Stay focused and manage your time effectively.
+          </p>
+        </div>
         <Card className="bg-card/50 backdrop-blur-sm text-card-foreground rounded-2xl shadow-lg border-border/80">
           <CardContent className="text-center space-y-8 p-6 sm:p-10">
             <SessionIndicators />

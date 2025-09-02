@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFriends } from "@/lib/hooks/useFriends";
 import type { SearchResult } from "@/types/friends";
+import FriendsPageSkeleton from "./components/FriendsSkeleton"; // Import the skeleton component
 
 export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -233,22 +234,9 @@ export default function FriendsPage() {
     </button>
   );
 
+  // Use the new skeleton component when isLoading is true
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Friends</h1>
-            <p className="text-muted-foreground">
-              Connect with your study buddies
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full"></div>
-        </div>
-      </div>
-    );
+    return <FriendsPageSkeleton />;
   }
 
   return (

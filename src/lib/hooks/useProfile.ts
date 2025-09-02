@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
 
 export type Profile = {
   username: string;
@@ -10,17 +11,33 @@ export type Profile = {
   bio: string;
 };
 
+export type ProfileStats = {
+  totalStudySessions: number;
+  totalStudyTime: number;
+  bestStreak: number;
+};
+
 export function useProfile() {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // The main loading state for the UI
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // Internal loading state for the profile fetch
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  // The analytics hook manages its own loading state
+  const {
+    data: stats,
+    loading: statsLoading,
+    error: statsError,
+  } = useAnalyticsData("all-time", new Date().getFullYear());
+
   const fetchProfile = useCallback(
     async (currentUser: User) => {
-      setLoading(true);
+      setProfileLoading(true);
       const { data, error } = await supabase
         .from("profiles")
         .select("username, display_name, avatar_url, bio")
@@ -28,11 +45,11 @@ export function useProfile() {
         .single();
 
       if (error) {
-        console.error("Error fetching profile:", error.message);
+        toast.error("Error fetching profile", { description: error.message });
       } else if (data) {
         setProfile(data);
       }
-      setLoading(false);
+      setProfileLoading(false);
     },
     [supabase]
   );
@@ -46,11 +63,22 @@ export function useProfile() {
         setUser(session.user);
         fetchProfile(session.user);
       } else {
-        setLoading(false);
+        // If there's no user, we can stop the loading process
+        setProfileLoading(false);
       }
     };
     getSession();
   }, [supabase.auth, fetchProfile]);
+
+  // This effect synchronizes the internal loading states into a single `loading` state
+  // for the consuming component. The skeleton loader will remain until both are false.
+  useEffect(() => {
+    if (profileLoading || statsLoading) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [profileLoading, statsLoading]);
 
   const updateProfile = async (updatedProfile: Partial<Profile>) => {
     if (!user) return false;
@@ -65,9 +93,7 @@ export function useProfile() {
       if (error.code === "23505") {
         toast.error("This username is already taken.");
       } else {
-        toast.error("Error updating profile", {
-          description: error.message,
-        });
+        toast.error("Error updating profile", { description: error.message });
       }
       setSaving(false);
       return false;
@@ -80,14 +106,9 @@ export function useProfile() {
   };
 
   const uploadAvatar = async (file: File) => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user || !user) {
-      console.error("No authenticated user found");
+    if (!user) {
       toast.error("Authentication Error", {
-        description: "You are not logged in. Please refresh and try again.",
+        description: "You are not logged in.",
       });
       return;
     }
@@ -109,10 +130,8 @@ export function useProfile() {
     }
 
     setUploading(true);
-
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
     try {
       if (profile?.avatar_url) {
@@ -124,40 +143,19 @@ export function useProfile() {
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error("Upload error details:", uploadError);
-        let description = uploadError.message;
-        if (uploadError.message.includes("row-level security")) {
-          description =
-            "You don't have permission to upload files. Please contact support.";
-        } else if (uploadError.message.includes("duplicate")) {
-          description = "File already exists. Please try again.";
-        }
-        toast.error("Error uploading avatar", { description });
-        return;
-      }
+        .upload(filePath, file);
+      if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
-
       if (urlData?.publicUrl) {
         await updateProfile({ avatar_url: urlData.publicUrl });
-        // The success toast for this is handled inside `updateProfile`
       } else {
         throw new Error("Failed to get public URL for uploaded file");
       }
     } catch (error: any) {
-      console.error("Avatar upload failed:", error);
-      toast.error("Avatar Upload Failed", {
-        description:
-          error.message || "An unknown error occurred. Please try again.",
-      });
+      toast.error("Avatar Upload Failed", { description: error.message });
     } finally {
       setUploading(false);
     }
@@ -172,5 +170,7 @@ export function useProfile() {
     updateProfile,
     uploading,
     uploadAvatar,
+    stats,
+    statsError,
   };
 }
