@@ -12,10 +12,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Volume2, VolumeX, Play, Pause, Loader2 } from "lucide-react";
-import {
-  useAudioNotifications,
-  type PomodoroSound,
-} from "@/lib/hooks/useAudioNotifications";
+import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
 
 interface SoundSelectorProps {
   soundEnabled: boolean;

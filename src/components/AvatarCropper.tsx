@@ -231,8 +231,6 @@ export default function AvatarCropper({
     // Calculate scaled dimensions and positions
     const scaledWidth = imageElement.width * imageState.scale;
     const scaledHeight = imageElement.height * imageState.scale;
-    const x = imageState.x * CANVAS_DIMENSION - scaledWidth / 2;
-    const y = imageState.y * CANVAS_DIMENSION - scaledHeight / 2;
 
     // Calculate the crop area relative to the canvas center
     const cropX = CANVAS_DIMENSION / 2 - CROP_DIMENSION / 2;

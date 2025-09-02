@@ -234,27 +234,24 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
 function calculateMostActiveHour(
   sessions: { started_at: string }[]
 ): FunFact | null {
-  // Require a minimum number of sessions for a meaningful insight
   if (sessions.length < 3) return null;
 
   const hourCounts: { [key: number]: number } = {};
   sessions.forEach((session) => {
-    // getHours() returns the hour in the user's local timezone
     const hour = new Date(session.started_at).getHours();
     hourCounts[hour] = (hourCounts[hour] || 0) + 1;
   });
 
   if (Object.keys(hourCounts).length === 0) return null;
 
-  // Find the hour with the most sessions
   const mostActiveHour = parseInt(
     Object.entries(hourCounts).reduce((a, b) => (b[1] > a[1] ? b : a))[0]
   );
 
   return {
     hour: mostActiveHour,
-    // Define "Early Bird" as studying between 5 AM and 11 AM
-    isEarlyBird: mostActiveHour >= 5 && mostActiveHour < 12,
+    // FIX: Redefine "Early Bird" to include afternoon hours (5 AM to 6 PM)
+    isEarlyBird: mostActiveHour >= 5 && mostActiveHour < 18,
   };
 }
 

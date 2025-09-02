@@ -549,7 +549,7 @@ export default function FriendsPage() {
                 <div className="text-center py-12">
                   <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
-                    You haven't blocked any users.
+                    You haven&apos;t blocked any users.
                   </p>
                 </div>
               )}

@@ -288,7 +288,7 @@ export default function DashboardPage() {
         {/* Weekly Progress */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>This Week's Progress</CardTitle>
+            <CardTitle>This Week&apos;s Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">

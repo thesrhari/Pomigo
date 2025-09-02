@@ -30,7 +30,6 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   timeLeft,
   currentSubject,
   sessionType,
-  currentCycle,
   sessionSequence,
   currentSessionIndex,
   timerRunning,

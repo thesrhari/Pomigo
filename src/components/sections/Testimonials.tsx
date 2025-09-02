@@ -1,10 +1,6 @@
 import React from "react";
 import TestimonialCard from "../TestimonialCard";
 
-interface TestimonialsSectionProps {
-  darkMode: boolean;
-}
-
 const testimonials = [
   {
     name: "Sarah Chen",
@@ -39,8 +35,8 @@ const TestimonialsSection = () => {
             Stop studying alone. Stay accountable with friends.
           </h2>
           <p className="text-base leading-relaxed text-muted-foreground sm:text-lg lg:text-xl">
-            Join thousands of students who've transformed their study habits
-            with social accountability.
+            Join thousands of students who&apos;ve transformed their study
+            habits with social accountability.
           </p>
         </div>
 

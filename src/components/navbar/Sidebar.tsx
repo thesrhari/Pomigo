@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   async function signOut() {
     try {
-      const { error } = await supabase.auth.signOut();
+      await supabase.auth.signOut();
     } catch (err) {
       console.error(err);
     } finally {

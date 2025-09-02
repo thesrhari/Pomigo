@@ -1,7 +1,6 @@
 // lib/friends-service.ts
 
 import type {
-  Profile,
   FriendRequest,
   Friend,
   SearchResult,

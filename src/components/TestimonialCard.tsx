@@ -41,7 +41,7 @@ const TestimonialCard: React.FC<TestimonialCardProps> = ({ testimonial }) => (
 
     {/* Testimonial Text */}
     <p className="text-sm italic leading-relaxed text-muted-foreground sm:text-base">
-      "{testimonial.text}"
+      &quot;{testimonial.text}&quot;
     </p>
   </div>
 );

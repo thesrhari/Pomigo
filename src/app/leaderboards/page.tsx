@@ -229,7 +229,7 @@ export default function MinimalLeaderboard() {
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
             <UserPlus className="w-12 h-12 text-muted-foreground mx-auto" />
             <h3 className="text-lg font-semibold text-foreground">
-              It's quiet in here...
+              It&apos;s quiet in here...
             </h3>
             <p className="text-muted-foreground text-sm">
               Add friends to start competing on the leaderboard!

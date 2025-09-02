@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, Loader2, BrainCircuit } from "lucide-react"; // Added an icon
+import { Trash2, Loader2 } from "lucide-react"; // Added an icon
 import AvatarCropper from "@/components/AvatarCropper"; // Import the custom cropper
 
 // Helper function to format seconds into a more readable format

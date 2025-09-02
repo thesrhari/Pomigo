@@ -1,10 +1,6 @@
 import React from "react";
 import { Play, TrendingUp, Users } from "lucide-react";
 
-interface HowItWorksSectionProps {
-  darkMode: boolean;
-}
-
 const steps = [
   {
     number: "01",

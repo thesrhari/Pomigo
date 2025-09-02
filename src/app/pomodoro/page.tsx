@@ -12,14 +12,7 @@ import {
 import { PomodoroSettings } from "@/components/features/PomodoroSettings";
 import { SubjectManager } from "@/components/features/SubjectManager";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
-import {
-  Play,
-  Pause,
-  Settings,
-  Book,
-  RotateCcw,
-  SkipForward,
-} from "lucide-react";
+import { Play, Pause, Settings, RotateCcw, SkipForward } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
 import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications"; // Import the audio hook

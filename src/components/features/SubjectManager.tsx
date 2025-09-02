@@ -495,7 +495,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the subject "{deletingSubject?.name}"
+              This will permanently delete the subject {deletingSubject?.name}
               and all associated data. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
