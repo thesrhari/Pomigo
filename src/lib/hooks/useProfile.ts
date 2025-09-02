@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
 import useSWR, { useSWRConfig } from "swr";

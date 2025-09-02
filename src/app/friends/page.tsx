@@ -304,9 +304,6 @@ export default function FriendsPage() {
                               friend.name.charAt(0).toUpperCase()
                             )}
                           </div>
-                          {friend.is_online && (
-                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-card" />
-                          )}
                         </div>
                         <div>
                           <h3 className="font-semibold text-card-foreground">

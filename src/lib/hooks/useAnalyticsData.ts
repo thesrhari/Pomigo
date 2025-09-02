@@ -367,7 +367,7 @@ function calculateProductiveHours(
   const peakHour = parseInt(sortedHours[0][0]);
 
   // A simple approach: find the peak hour and the next most common one.
-  let secondHour =
+  const secondHour =
     sortedHours.length > 1 ? parseInt(sortedHours[1][0]) : peakHour;
   const start = Math.min(peakHour, secondHour);
   const end = Math.max(peakHour, secondHour);

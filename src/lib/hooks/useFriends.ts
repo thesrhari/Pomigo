@@ -3,12 +3,7 @@ import useSWR, { useSWRConfig } from "swr";
 import useSWRMutation from "swr/mutation";
 import { useCallback } from "react";
 import { FriendsService } from "@/lib/friends-service";
-import type {
-  Friend,
-  FriendRequest,
-  SearchResult,
-  BlockedUser,
-} from "@/types/friends";
+import type { SearchResult } from "@/types/friends";
 
 // Initialize the FriendsService
 const friendsService = new FriendsService();
@@ -22,7 +17,7 @@ const SWR_KEYS = {
 };
 
 // A multi-fetcher function to fetch all data in parallel
-const multiFetcher = async (keys: string[]) => {
+const multiFetcher = async () => {
   const [friends, incomingRequests, outgoingRequests, blockedUsers] =
     await Promise.all([
       friendsService.getFriends(),
