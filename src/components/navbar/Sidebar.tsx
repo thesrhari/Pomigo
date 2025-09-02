@@ -5,26 +5,35 @@ import { Button } from "@/components/ui/button";
 import {
   Home,
   Timer,
-  CheckSquare,
   BarChart3,
   Users,
   User,
   LogOut,
   Menu,
   X,
+  Trophy,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, path: "/dashboard" },
   { id: "pomodoro", label: "Pomodoro", icon: Timer, path: "/pomodoro" },
   { id: "analytics", label: "Analytics", icon: BarChart3, path: "/analytics" },
-  { id: "social", label: "Social Hub", icon: Users, path: "/social" },
+  { id: "friends", label: "Friends", icon: Users, path: "/friends" },
+  {
+    id: "leaderboards",
+    label: "Leaderboards",
+    icon: Trophy,
+    path: "/leaderboards",
+  },
 ];
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
 }
+
+const supabase = createClient();
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const router = useRouter();
@@ -41,6 +50,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     router.push(path);
     setSidebarOpen(false);
   };
+
+  async function signOut() {
+    try {
+      const { error } = await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      router.push("/login");
+    }
+  }
 
   return (
     <>
@@ -99,9 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => {
-                  /* handle logout */
-                }}
+                onClick={signOut}
               >
                 <LogOut className="w-5 h-5 mr-3" />
                 Logout

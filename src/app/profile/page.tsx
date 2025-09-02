@@ -1,447 +1,334 @@
 "use client";
-import React, { useState } from "react";
+
+import { useRef, useState } from "react";
+import { useProfile } from "@/lib/hooks/useProfile"; // Assuming your hook is in @/hooks/useProfile
+import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData"; // 1. Import the analytics hook
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, X, Trash2, Eye, Download } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Trash2, Loader2, BrainCircuit } from "lucide-react"; // Added an icon
+import AvatarCropper from "@/components/AvatarCropper"; // Import the custom cropper
 
-export default function ProfilePage() {
-  const [activeSection, setActiveSection] = useState("profile");
+// Helper function to format seconds into a more readable format
+const formatDuration = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  return `${hours.toFixed(1)}h`;
+};
+
+// 2. Create a dedicated component for the stats to keep the main component clean
+function ProfileStats() {
+  // We'll use "all-time" for this high-level overview
+  const { data, loading, error } = useAnalyticsData(
+    "all-time",
+    new Date().getFullYear()
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <p className="p-4 text-sm text-destructive">Could not load stats.</p>
+    );
+  }
+
+  const stats = [
+    {
+      label: "Total sessions",
+      value: data.totalStudySessions.toLocaleString(),
+    },
+    {
+      label: "Total hours",
+      value: formatDuration(data.totalStudyTime),
+    },
+    {
+      label: "Best streak",
+      value: `${data.bestStreak} days`,
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Profile & Settings</h1>
+    <CardContent className="space-y-4">
+      {stats.map((stat) => (
+        <div
+          key={stat.label}
+          className="flex items-center justify-between text-sm"
+        >
+          <p className="text-muted-foreground">{stat.label}</p>
+          <p className="font-medium text-foreground">{stat.value}</p>
+        </div>
+      ))}
+    </CardContent>
+  );
+}
 
-      <Tabs value={activeSection} onValueChange={setActiveSection}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
-        </TabsList>
+export default function ProfilePage() {
+  const {
+    user,
+    profile,
+    setProfile,
+    loading,
+    saving,
+    updateProfile,
+    uploading,
+    uploadAvatar,
+  } = useProfile();
 
-        <TabsContent value="profile" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center space-x-6">
-                    <div className="w-24 h-24 rounded-full flex items-center justify-center text-primary-foreground text-3xl font-bold bg-primary">
-                      AK
-                    </div>
-                    <div className="space-y-2">
-                      <Button variant="outline" size="sm">
-                        Change Avatar
-                      </Button>
-                      <div className="flex space-x-2">
-                        <Badge>Student</Badge>
-                        <Badge variant="secondary">Free Plan</Badge>
-                      </div>
-                    </div>
-                  </div>
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [isEditorOpen, setEditorOpen] = useState(false);
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Display Name</Label>
-                      <Input defaultValue="Alex Kumar" />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        defaultValue="alex.kumar@university.edu"
-                        disabled
-                      />
-                    </div>
-                    <div>
-                      <Label>University</Label>
-                      <Input defaultValue="Stanford University" />
-                    </div>
-                    <div>
-                      <Label>Study Goal (hours/day)</Label>
-                      <Select defaultValue="4">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="2">2 hours</SelectItem>
-                          <SelectItem value="4">4 hours</SelectItem>
-                          <SelectItem value="6">6 hours</SelectItem>
-                          <SelectItem value="8">8 hours</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Time Zone</Label>
-                      <Select defaultValue="pst">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pst">
-                            Pacific Standard Time
-                          </SelectItem>
-                          <SelectItem value="est">
-                            Eastern Standard Time
-                          </SelectItem>
-                          <SelectItem value="cst">
-                            Central Standard Time
-                          </SelectItem>
-                          <SelectItem value="mst">
-                            Mountain Standard Time
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Language</Label>
-                      <Select defaultValue="en">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="es">Spanish</SelectItem>
-                          <SelectItem value="fr">French</SelectItem>
-                          <SelectItem value="de">German</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+  // When a user selects a file, open the editor modal
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      setEditorOpen(true);
+      // Clear the input value to allow re-selecting the same file again
+      e.target.value = "";
+    }
+  };
 
-                  <div>
-                    <Label>Bio</Label>
-                    <Textarea
-                      placeholder="Tell your study buddies about yourself..."
-                      defaultValue="Computer Science student passionate about AI and machine learning. Always up for study sessions and accountability partnerships!"
-                    />
-                  </div>
+  // This function is called by the modal when the user saves the cropped image
+  const handleSaveCroppedImage = async (croppedFile: File) => {
+    await uploadAvatar(croppedFile);
+    setEditorOpen(false);
+    setSelectedImage(null);
+  };
 
-                  <Button>Save Changes</Button>
-                </CardContent>
-              </Card>
-            </div>
+  // Handles changes for all text inputs and textareas
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { id, value } = e.target;
+    if (profile) {
+      // Sanitize username to only allow lowercase letters, numbers, and underscores
+      if (id === "username") {
+        const sanitizedValue = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+        setProfile({ ...profile, [id]: sanitizedValue });
+      } else {
+        setProfile({ ...profile, [id]: value });
+      }
+    }
+  };
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Subscription */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Subscription</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center space-y-4">
-                  <div className="text-4xl mb-4">🆓</div>
-                  <div>
-                    <h4 className="font-semibold">Free Plan</h4>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Limited features available
+  // Gathers all edited text fields and sends them to the update function
+  const handleSaveChanges = async () => {
+    if (!profile) return;
+    await updateProfile({
+      display_name: profile.display_name,
+      username: profile.username,
+      bio: profile.bio,
+    });
+  };
+
+  // Generates a fallback avatar from the user's initials
+  const getAvatarFallback = () => {
+    if (profile?.display_name) {
+      return profile.display_name.slice(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return "??";
+  };
+
+  // Initial loading state for the page
+  if (loading) {
+    return (
+      <div className="container mx-auto max-w-6xl p-8 text-center">
+        <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Loading Profile...</p>
+      </div>
+    );
+  }
+
+  // State if the user or profile could not be fetched
+  if (!user || !profile) {
+    return (
+      <div className="container mx-auto max-w-6xl p-8 text-center">
+        <h2 className="text-2xl font-semibold">Could not load profile.</h2>
+        <p className="mt-2 text-muted-foreground">
+          Please try logging in again.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* The modal is rendered here but is only visible when isEditorOpen is true */}
+      <AvatarCropper
+        isOpen={isEditorOpen}
+        onClose={() => setEditorOpen(false)}
+        image={selectedImage}
+        onSave={handleSaveCroppedImage}
+      />
+
+      <div className="container mx-auto max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Profile & Settings
+          </h1>
+          <p className="mt-1 text-lg text-muted-foreground">
+            Manage your account and personal information.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Information</CardTitle>
+                <CardDescription>
+                  Update your personal details. This information will be
+                  displayed publicly.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col items-start space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-6">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profile.avatar_url} alt="User Avatar" />
+                    <AvatarFallback className="text-3xl">
+                      {getAvatarFallback()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <input
+                    type="file"
+                    ref={avatarInputRef}
+                    style={{ display: "none" }}
+                    accept="image/png, image/jpeg"
+                    onChange={handleFileSelect}
+                  />
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {uploading ? "Uploading..." : "Change Avatar"}
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      JPG or PNG. Max size of 1MB.
                     </p>
                   </div>
-                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                    Upgrade to Pro
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    $2.99/month • Study Circles, Advanced Analytics & More
-                  </p>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Account Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Journey</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>Member since</span>
-                    <span className="font-medium">Jan 2024</span>
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="display_name">Display Name</Label>
+                    <Input
+                      id="display_name"
+                      value={profile.display_name}
+                      onChange={handleInputChange}
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span>Total sessions</span>
-                    <span className="font-medium">156</span>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      value={profile.username}
+                      onChange={handleInputChange}
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span>Total hours</span>
-                    <span className="font-medium">78.5h</span>
+                  <div className="col-span-1 sm:col-span-2 space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={user.email || ""}
+                      disabled
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span>Best streak</span>
-                    <span className="font-medium">15 days</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Friends</span>
-                    <span className="font-medium">12</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
+                </div>
 
-        <TabsContent value="preferences" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Study Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Default Pomodoro Length</Label>
-                  <Select defaultValue="25">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 minutes</SelectItem>
-                      <SelectItem value="25">25 minutes</SelectItem>
-                      <SelectItem value="30">30 minutes</SelectItem>
-                      <SelectItem value="45">45 minutes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Auto-start breaks</Label>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm">
-                      Automatically start break timers
-                    </span>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-                <div>
-                  <Label>Study reminders</Label>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm">Daily study reminders</span>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-                <div>
-                  <Label>Streak freeze</Label>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm">
-                      Allow 1 day streak freeze per week
-                    </span>
-                    <Switch />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Tell your study buddies about yourself..."
+                    value={profile.bio || ""}
+                    onChange={handleInputChange}
+                    className="min-h-[120px]"
+                  />
                 </div>
               </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Privacy Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Profile visibility</Label>
-                  <Select defaultValue="friends">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">Public</SelectItem>
-                      <SelectItem value="friends">Friends only</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Show study status</div>
-                    <div className="text-sm text-muted-foreground">
-                      Let friends see when you're studying
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Show on leaderboards</div>
-                    <div className="text-sm text-muted-foreground">
-                      Appear in friend leaderboards
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">Allow friend requests</div>
-                    <div className="text-sm text-muted-foreground">
-                      Let others send you friend requests
-                    </div>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-              </CardContent>
+              <CardFooter className="flex justify-end border-t px-6 py-4">
+                <Button
+                  onClick={handleSaveChanges}
+                  disabled={saving || uploading}
+                >
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </CardFooter>
             </Card>
           </div>
-        </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h4 className="font-medium mb-4">Study Notifications</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Break reminders</div>
-                      <div className="text-sm text-muted-foreground">
-                        Get reminded to take breaks
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Session complete</div>
-                      <div className="text-sm text-muted-foreground">
-                        Notification when study session ends
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Daily goal reminders</div>
-                      <div className="text-sm text-muted-foreground">
-                        Reminder if you haven't met daily goals
-                      </div>
-                    </div>
-                    <Switch />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-4">Social Notifications</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Friend activity</div>
-                      <div className="text-sm text-muted-foreground">
-                        When friends start studying
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Study group updates</div>
-                      <div className="text-sm text-muted-foreground">
-                        Updates from your study groups
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Milestone celebrations</div>
-                      <div className="text-sm text-muted-foreground">
-                        When you or friends hit milestones
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-4">Email & Push</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Email notifications</div>
-                      <div className="text-sm text-muted-foreground">
-                        Weekly summary emails
-                      </div>
-                    </div>
-                    <Switch />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Push notifications</div>
-                      <div className="text-sm text-muted-foreground">
-                        Browser push notifications
-                      </div>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="account" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Sidebar */}
+          <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>Data & Privacy</CardTitle>
+                <CardTitle>Subscription</CardTitle>
+                <CardDescription>
+                  You are currently on the{" "}
+                  <span className="font-semibold text-primary">Free Plan</span>.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button variant="outline" className="w-full justify-start">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export my data
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Privacy dashboard
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Account settings
+                <Button className="w-full" disabled={true}>
+                  Upgrade to Pro (Coming Soon)
                 </Button>
               </CardContent>
             </Card>
 
+            {/* 3. Update the "Your Journey" card */}
             <Card>
+              <CardHeader>
+                <CardTitle>Your Journey</CardTitle>
+                <CardDescription>A quick look at your stats.</CardDescription>
+              </CardHeader>
+              {/* The ProfileStats component now handles fetching and displaying */}
+              <ProfileStats />
+            </Card>
+
+            <Card className="border-destructive">
               <CardHeader>
                 <CardTitle>Danger Zone</CardTitle>
+                <CardDescription>
+                  This action is permanent and cannot be undone.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-warning hover:text-warning/90"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Deactivate account
+              <CardContent>
+                <Button variant="destructive" className="w-full">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete My Account
                 </Button>
-                <Button variant="destructive" className="w-full justify-start">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete account
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  This action cannot be undone. All your data will be
-                  permanently deleted.
-                </p>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

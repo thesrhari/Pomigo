@@ -3,6 +3,7 @@ import React from "react";
 import { TopNavBar } from "./TopNavBar";
 import { Sidebar } from "./Sidebar";
 import { usePathname } from "next/navigation";
+import { Toaster } from "sonner";
 
 interface NavBarProviderProps {
   children: React.ReactNode;
@@ -28,6 +29,7 @@ export default function NavBarProvider({ children }: NavBarProviderProps) {
           <div className="flex-1 lg:ml-64 overflow-auto">
             <div className="p-6 lg:p-8">{children}</div>
           </div>
+          <Toaster />
         </div>
       </div>
     </div>
