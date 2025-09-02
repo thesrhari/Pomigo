@@ -26,7 +26,6 @@ import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
 
-// SubjectManager Component
 interface Subject {
   id: number;
   name: string;
@@ -36,12 +35,14 @@ interface Subject {
 
 interface SubjectManagerProps {
   subjects: Subject[];
+  addSubject: (name: string, color: string) => Promise<void>;
   updateSubjects: (subject: Subject) => Promise<void>;
   deleteSubject?: (subjectId: number) => Promise<void>;
 }
 
 export const SubjectManager: React.FC<SubjectManagerProps> = ({
   subjects,
+  addSubject: addSubjectProp,
   updateSubjects,
   deleteSubject: deleteSubjectProp,
 }) => {
@@ -53,60 +54,26 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     color: "#3B82F6",
   });
   const [isLoading, setIsLoading] = useState(false);
-
-  // Keep preset colors as hardcoded values
   const presetColors = [
-    "#3B82F6", // Blue
-    "#10B981", // Emerald
-    "#F59E0B", // Amber
-    "#EF4444", // Red
-    "#8B5CF6", // Violet
-    "#06B6D4", // Cyan
-    "#84CC16", // Lime
-    "#F97316", // Orange
-    "#EC4899", // Pink
-    "#14B8A6", // Teal
-    "#6366F1", // Indigo
-    "#A855F7", // Purple
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#8B5CF6",
+    "#06B6D4",
+    "#84CC16",
+    "#F97316",
+    "#EC4899",
+    "#14B8A6",
+    "#6366F1",
+    "#A855F7",
   ];
 
   const addSubject = async () => {
     if (!newSubject.name.trim()) return;
-
     setIsLoading(true);
     try {
-      // Get current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("No authenticated user");
-
-      // Insert new subject into database
-      const { data, error } = await supabase
-        .from("subjects")
-        .insert({
-          user_id: user.id,
-          subject_name: newSubject.name,
-          color: newSubject.color,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Create the subject object for local state
-      const subject: Subject = {
-        id: data.id,
-        name: data.subject_name,
-        color: data.color,
-        totalHours: 0,
-      };
-
-      // Update local state by calling the parent's update function
-      // Note: This assumes the parent will handle adding to the array
-      await updateSubjects(subject);
-
-      // Reset form
+      await addSubjectProp(newSubject.name, newSubject.color);
       setNewSubject({ name: "", color: "#3B82F6" });
       setIsOpen(false);
     } catch (err) {
@@ -134,21 +101,15 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     setIsLoading(true);
     try {
       if (deleteSubjectProp) {
-        // Use the prop function if provided
         await deleteSubjectProp(subject.id);
       } else {
-        // Fallback to direct database call
         const { error } = await supabase
           .from("subjects")
           .delete()
           .eq("id", subject.id);
-
         if (error) throw error;
-
-        // Refresh the page as a last resort
         window.location.reload();
       }
-
       setDeletingSubject(null);
     } catch (err) {
       console.error("Error deleting subject:", err);
@@ -173,9 +134,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
               Add, edit, or remove your study subjects.
             </DialogDescription>
           </DialogHeader>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
-            {/* Left side - Add New Subject */}
             <div className="overflow-y-auto custom-scrollbar pr-2">
               <div className="bg-accent/20 rounded-2xl border border-accent-foreground/10 p-6">
                 <div className="mb-6">
@@ -187,7 +146,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                     Create a new study subject with a custom color
                   </p>
                 </div>
-
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <Label
@@ -208,14 +166,11 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       disabled={isLoading}
                     />
                   </div>
-
                   <div className="space-y-4">
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <Palette className="w-4 h-4" />
                       Choose Color
                     </Label>
-
-                    {/* Enhanced Color Picker */}
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border">
                         <div
@@ -240,8 +195,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                           />
                         </div>
                       </div>
-
-                      {/* Preset Colors */}
                       <div>
                         <Label className="text-xs text-muted-foreground mb-2 block">
                           Quick Colors
@@ -266,7 +219,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       </div>
                     </div>
                   </div>
-
                   <Button
                     onClick={addSubject}
                     className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
@@ -287,8 +239,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* Right side - Existing Subjects */}
             <div className="flex flex-col min-h-0">
               <div className="mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold mb-2">Your Subjects</h3>
@@ -297,7 +247,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   created
                 </p>
               </div>
-
               <div className="flex-1 min-h-0 overflow-hidden">
                 {subjects.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center bg-muted/30 rounded-2xl border-2 border-dashed border-border/50 p-8">
@@ -364,7 +313,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
               </div>
             </div>
           </div>
-
           <style jsx>{`
             .custom-scrollbar {
               scrollbar-width: thin;
@@ -386,8 +334,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
           `}</style>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Subject Dialog */}
       {editingSubject && (
         <Dialog
           open={!!editingSubject}
@@ -417,7 +363,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   disabled={isLoading}
                 />
               </div>
-
               <div className="space-y-4">
                 <Label>Color</Label>
                 <div className="space-y-4">
@@ -439,7 +384,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       disabled={isLoading}
                     />
                   </div>
-
                   <div className="grid grid-cols-6 gap-2">
                     {presetColors.map((color, index) => (
                       <button
@@ -485,8 +429,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
           </DialogContent>
         </Dialog>
       )}
-
-      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={!!deletingSubject}
         onOpenChange={() => setDeletingSubject(null)}

@@ -67,15 +67,10 @@ const fetchPomodoroSettings = async (
     )
     .eq("user_id", userId)
     .single();
-
-  // .single() will throw an error if no row is found, which SWR will catch.
-  // This is the desired behavior since we assume settings always exist.
   if (error) {
     console.error("Error fetching pomodoro settings:", error);
     throw error;
   }
-
-  // Directly map the database fields to the PomodoroSettings interface.
   return {
     focusTime: data.focus_duration,
     shortBreak: data.short_break,
@@ -117,19 +112,28 @@ export function useSupabaseData() {
   } = useSWR<PomodoroSettings>(
     userId ? ["pomodoro_settings", userId] : null,
     () => fetchPomodoroSettings(userId!)
-    // We remove `fallbackData` to prevent the flash of default content.
-    // `pomodoroSettings` will be `undefined` until data is loaded.
   );
+
+  const addSubject = async (name: string, color: string) => {
+    try {
+      if (!userId) throw new Error("User not found");
+      const { error } = await supabase
+        .from("subjects")
+        .insert({ user_id: userId, subject_name: name, color: color });
+      if (error) throw error;
+      mutate(["subjects", userId]);
+    } catch (err) {
+      console.error("Error adding subject:", err);
+      throw err;
+    }
+  };
 
   const updateSubjects = async (subject: Subject) => {
     try {
       if (subjects && subjects.find((s) => s.id === subject.id)) {
         const { error } = await supabase
           .from("subjects")
-          .update({
-            subject_name: subject.name,
-            color: subject.color,
-          })
+          .update({ subject_name: subject.name, color: subject.color })
           .eq("id", subject.id);
         if (error) throw error;
         mutate(["subjects", userId]);
@@ -180,11 +184,10 @@ export function useSupabaseData() {
 
   return {
     subjects: subjects || [],
-    // `pomodoroSettings` is now returned directly. It will be `undefined` during the initial fetch.
     pomodoroSettings,
-    // The `loading` state should be used in the UI to show a loading indicator.
     loading: subjectsLoading || pomodoroLoading,
     error: subjectsError || pomodoroError,
+    addSubject,
     updateSubjects,
     deleteSubject,
     updatePomodoroSettings,
