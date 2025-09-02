@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
+import useSWR, { useSWRConfig } from "swr";
 
 export type Profile = {
   username: string;
@@ -19,71 +20,60 @@ export type ProfileStats = {
 
 export function useProfile() {
   const supabase = createClient();
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true); // The main loading state for the UI
+  const { mutate } = useSWRConfig();
+
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Internal loading state for the profile fetch
-  const [profileLoading, setProfileLoading] = useState(true);
+  // SWR hook for fetching the user session
+  const { data: user, error: userError } = useSWR("user-session", async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.user ?? null;
+  });
 
-  // The analytics hook manages its own loading state
+  // Dependent SWR hook for fetching the profile
+  const {
+    data: profile,
+    error: profileError,
+    isLoading: profileLoading,
+  } = useSWR(user ? ["profile", user.id] : null, async () => {
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("username, display_name, avatar_url, bio")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      toast.error("Error fetching profile", { description: error.message });
+      throw error;
+    }
+    return data;
+  });
+
   const {
     data: stats,
     loading: statsLoading,
     error: statsError,
   } = useAnalyticsData("all-time", new Date().getFullYear());
 
-  const fetchProfile = useCallback(
-    async (currentUser: User) => {
-      setProfileLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username, display_name, avatar_url, bio")
-        .eq("id", currentUser.id)
-        .single();
-
-      if (error) {
-        toast.error("Error fetching profile", { description: error.message });
-      } else if (data) {
-        setProfile(data);
-      }
-      setProfileLoading(false);
-    },
-    [supabase]
-  );
-
-  useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        fetchProfile(session.user);
-      } else {
-        // If there's no user, we can stop the loading process
-        setProfileLoading(false);
-      }
-    };
-    getSession();
-  }, [supabase.auth, fetchProfile]);
-
-  // This effect synchronizes the internal loading states into a single `loading` state
-  // for the consuming component. The skeleton loader will remain until both are false.
-  useEffect(() => {
-    if (profileLoading || statsLoading) {
-      setLoading(true);
-    } else {
-      setLoading(false);
-    }
-  }, [profileLoading, statsLoading]);
+  const loading = profileLoading || statsLoading;
 
   const updateProfile = async (updatedProfile: Partial<Profile>) => {
     if (!user) return false;
 
     setSaving(true);
+
+    // Optimistic UI update
+    const previousProfile = profile;
+    mutate(
+      ["profile", user.id],
+      { ...profile, ...updatedProfile },
+      { revalidate: false }
+    );
+
     const { error } = await supabase
       .from("profiles")
       .update(updatedProfile)
@@ -95,11 +85,14 @@ export function useProfile() {
       } else {
         toast.error("Error updating profile", { description: error.message });
       }
+      // Revert the optimistic update on error
+      mutate(["profile", user.id], previousProfile, { revalidate: false });
       setSaving(false);
       return false;
     }
 
-    setProfile((prev) => ({ ...prev!, ...updatedProfile }));
+    // Revalidate the data to ensure it's up-to-date
+    mutate(["profile", user.id]);
     toast.success("Profile saved successfully!");
     setSaving(false);
     return true;
@@ -149,6 +142,7 @@ export function useProfile() {
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
+
       if (urlData?.publicUrl) {
         await updateProfile({ avatar_url: urlData.publicUrl });
       } else {
@@ -164,7 +158,6 @@ export function useProfile() {
   return {
     user,
     profile,
-    setProfile,
     loading,
     saving,
     updateProfile,

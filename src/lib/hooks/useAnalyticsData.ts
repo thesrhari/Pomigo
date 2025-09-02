@@ -1,5 +1,6 @@
 // lib/hooks/useAnalyticsData.ts
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import {
   startOfDay,
@@ -27,7 +28,7 @@ const PIE_CHART_COLORS = [
   "var(--chart-5)",
 ];
 
-// --- TYPE DEFINITIONS ---
+// --- TYPE DEFINITIONS (Unchanged) ---
 
 export type TimeFilter = "today" | "week" | "month" | "all-time";
 
@@ -88,125 +89,123 @@ export interface AnalyticsData {
   funStats: FunStatsData | null;
 }
 
-// --- HOOK IMPLEMENTATION ---
+// --- FETCHER FUNCTION FOR SWR ---
+
+const fetcher = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated.");
+
+  const { data: allSessions, error: allSessionsError } = await supabase
+    .from("sessions")
+    .select("session_type, duration, subject, started_at")
+    .eq("user_id", user.id)
+    .order("started_at", { ascending: false });
+
+  if (allSessionsError) throw allSessionsError;
+
+  return allSessions;
+};
+
+// --- HOOK IMPLEMENTATION WITH SWR ---
 
 export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const {
+    data: allSessions,
+    error,
+    isLoading,
+  } = useSWR<RawSession[]>("analytics-data", fetcher);
 
-  useEffect(() => {
-    const fetchAndProcessData = async () => {
-      setLoading(true);
-      setError(null);
+  const processedData = useMemo(() => {
+    if (!allSessions) return null;
 
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated.");
+    // --- 1. Process all-time data for streaks, insights, and year list ---
+    const allStudySessions = allSessions
+      .filter((s) => s.session_type === "study")
+      .map((s) => ({
+        ...s,
+        subject: s.subject || "Uncategorized",
+      })) as FullStudySession[];
 
-        // --- 1. Fetch all-time data for streaks, insights, and year list ---
-        const { data: allSessions, error: allSessionsError } = await supabase
-          .from("sessions")
-          .select("session_type, duration, subject, started_at")
-          .eq("user_id", user.id)
-          .order("started_at", { ascending: false });
+    // --- 2. Calculate date ranges for current and previous periods ---
+    const { currentRange, previousRange } = getDateRanges(filter);
 
-        if (allSessionsError) throw allSessionsError;
+    // --- 3. Filter sessions for the current and previous periods ---
+    const currentPeriodSessions = allSessions.filter((s) => {
+      const sessionDate = new Date(s.started_at);
+      return currentRange.start ? sessionDate >= currentRange.start : true;
+    });
 
-        const allStudySessions = allSessions
-          .filter((s) => s.session_type === "study")
-          .map((s) => ({
-            ...s,
-            subject: s.subject || "Uncategorized",
-          })) as FullStudySession[];
+    const previousPeriodSessions =
+      previousRange.start && previousRange.end
+        ? allSessions.filter((s) => {
+            const sessionDate = new Date(s.started_at);
+            return (
+              sessionDate >= previousRange.start! &&
+              sessionDate <= previousRange.end!
+            );
+          })
+        : [];
 
-        // Set available contribution years on first load
-        if (availableYears.length === 0 && allSessions.length > 0) {
-          const firstYear = getYear(
-            new Date(allSessions[allSessions.length - 1].started_at)
-          );
-          const currentYear = new Date().getFullYear();
-          const years = Array.from(
-            { length: currentYear - firstYear + 1 },
-            (_, i) => currentYear - i
-          );
-          setAvailableYears(years);
-        }
+    // --- 4. Process data for both periods ---
+    const currentData = processSessions(currentPeriodSessions);
+    const previousData = processSessions(previousPeriodSessions);
 
-        // --- 2. Calculate date ranges for current and previous periods ---
-        const { currentRange, previousRange } = getDateRanges(filter);
+    const totalTimePerSubject = Object.entries(currentData.timePerSubject)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: PIE_CHART_COLORS[index % PIE_CHART_COLORS.length],
+      }))
+      .sort((a, b) => b.value - a.value);
 
-        // --- 3. Filter sessions for the current and previous periods ---
-        const currentPeriodSessions = allSessions.filter((s) => {
-          const sessionDate = new Date(s.started_at);
-          return currentRange.start ? sessionDate >= currentRange.start : true;
-        });
+    // --- 5. Calculate streaks and insightful stats from all-time data ---
+    const { currentStreak, bestStreak } = calculateStreaks(allStudySessions);
+    const productiveHours = calculateProductiveHours(allStudySessions);
+    const funStats = calculateFunStats(allStudySessions);
 
-        const previousPeriodSessions =
-          previousRange.start && previousRange.end
-            ? allSessions.filter((s) => {
-                const sessionDate = new Date(s.started_at);
-                return (
-                  sessionDate >= previousRange.start! &&
-                  sessionDate <= previousRange.end!
-                );
-              })
-            : [];
+    // --- 6. Calculate contribution graph data for the selected year ---
+    const { contributionData, totalContributionTimeForYear } =
+      getContributionDataForYear(allStudySessions, contributionYear);
 
-        // --- 4. Process data for both periods ---
-        const currentData = processSessions(currentPeriodSessions);
-        const previousData = processSessions(previousPeriodSessions);
-
-        const totalTimePerSubject = Object.entries(currentData.timePerSubject)
-          .map(([name, value], index) => ({
-            name,
-            value,
-            color: PIE_CHART_COLORS[index % PIE_CHART_COLORS.length],
-          }))
-          .sort((a, b) => b.value - a.value);
-
-        // --- 5. Calculate streaks and insightful stats from all-time data ---
-        const { currentStreak, bestStreak } =
-          calculateStreaks(allStudySessions);
-        const productiveHours = calculateProductiveHours(allStudySessions);
-        const funStats = calculateFunStats(allStudySessions);
-
-        // --- 6. Calculate contribution graph data for the selected year ---
-        const { contributionData, totalContributionTimeForYear } =
-          getContributionDataForYear(allStudySessions, contributionYear);
-
-        setData({
-          ...currentData,
-          totalTimePerSubject,
-          previousPeriodData: {
-            totalStudyTime: previousData.totalStudyTime,
-            totalStudySessions: previousData.totalStudySessions,
-          },
-          currentStreak,
-          bestStreak,
-          productiveHours,
-          funStats,
-          contributionData,
-          totalContributionTimeForYear,
-        });
-      } catch (err: any) {
-        console.error("Failed to fetch analytics data:", err);
-        setError(err.message || "An unknown error occurred.");
-      } finally {
-        setLoading(false);
-      }
+    return {
+      ...currentData,
+      totalTimePerSubject,
+      previousPeriodData: {
+        totalStudyTime: previousData.totalStudyTime,
+        totalStudySessions: previousData.totalStudySessions,
+      },
+      currentStreak,
+      bestStreak,
+      productiveHours,
+      funStats,
+      contributionData,
+      totalContributionTimeForYear,
     };
+  }, [allSessions, filter, contributionYear]);
 
-    fetchAndProcessData();
-  }, [filter, contributionYear]);
+  const availableYears = useMemo(() => {
+    if (!allSessions || allSessions.length === 0) return [];
+    const firstYear = getYear(
+      new Date(allSessions[allSessions.length - 1].started_at)
+    );
+    const currentYear = new Date().getFullYear();
+    return Array.from(
+      { length: currentYear - firstYear + 1 },
+      (_, i) => currentYear - i
+    );
+  }, [allSessions]);
 
-  return { data, loading, error, availableYears };
+  return {
+    data: processedData,
+    loading: isLoading,
+    error: error?.message || null,
+    availableYears,
+  };
 }
 
-// --- HELPER & CALCULATION FUNCTIONS ---
+// --- HELPER & CALCULATION FUNCTIONS (Unchanged) ---
 
 function processSessions(sessions: RawSession[]) {
   const accumulator = {

@@ -1,5 +1,6 @@
-// lib/hooks/useAudioNotifications.ts
 import { useState, useEffect, useCallback, useRef } from "react";
+import useSWR from "swr";
+import { createClient } from "@/lib/supabase/client";
 
 export interface PomodoroSound {
   id: number;
@@ -9,68 +10,52 @@ export interface PomodoroSound {
   duration_seconds: number | null;
 }
 
+const supabase = createClient();
+
+const fetchSounds = async (): Promise<PomodoroSound[]> => {
+  const { data, error } = await supabase
+    .from("pomodoro_sounds")
+    .select("*")
+    .order("name");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data || [];
+};
+
 export const useAudioNotifications = () => {
-  const [sounds, setSounds] = useState<PomodoroSound[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: sounds,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR("pomodoro_sounds", fetchSounds);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState<number | null>(null);
 
-  // Fetch available sounds from database
-  const fetchSounds = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // You'll need to import your supabase client here
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-
-      const { data, error: supabaseError } = await supabase
-        .from("pomodoro_sounds")
-        .select("*")
-        .order("name");
-
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
-      }
-
-      setSounds(data || []);
-    } catch (err) {
-      console.error("Error fetching sounds:", err);
-      setError(err instanceof Error ? err.message : "Failed to load sounds");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Play a sound notification
   const playSound = useCallback(
     async (soundId: number | null, enabled: boolean = true) => {
-      if (!enabled || !soundId) return;
+      if (!enabled || !soundId || !sounds) return;
 
       try {
         const sound = sounds.find((s) => s.id === soundId);
         if (!sound) return;
 
-        // Stop any currently playing audio
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
         }
 
-        // Create new audio instance
         const audio = new Audio(sound.file_path);
         audioRef.current = audio;
-
-        // Set volume (you might want to make this configurable)
         audio.volume = 0.7;
 
-        // Play the sound
         await audio.play();
 
-        // Optional: Add fade out effect for longer sounds
         if (sound.duration_seconds && sound.duration_seconds > 2) {
           setTimeout(() => {
             if (audioRef.current === audio) {
@@ -92,11 +77,9 @@ export const useAudioNotifications = () => {
     [sounds]
   );
 
-  // Preview a sound (with visual feedback)
   const previewSound = useCallback(
     async (soundId: number) => {
       if (isPlaying && currentPlayingId === soundId) {
-        // Stop current preview
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
@@ -107,10 +90,10 @@ export const useAudioNotifications = () => {
       }
 
       try {
+        if (!sounds) return;
         const sound = sounds.find((s) => s.id === soundId);
         if (!sound) return;
 
-        // Stop any currently playing audio
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
@@ -144,7 +127,6 @@ export const useAudioNotifications = () => {
     [sounds, isPlaying, currentPlayingId]
   );
 
-  // Stop any currently playing sound
   const stopSound = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -154,12 +136,6 @@ export const useAudioNotifications = () => {
     setCurrentPlayingId(null);
   }, []);
 
-  // Load sounds on mount
-  useEffect(() => {
-    fetchSounds();
-  }, [fetchSounds]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -170,14 +146,14 @@ export const useAudioNotifications = () => {
   }, []);
 
   return {
-    sounds,
-    loading,
-    error,
+    sounds: sounds || [],
+    loading: isLoading,
+    error: error ? error.message : null,
     playSound,
     previewSound,
     stopSound,
     isPlaying,
     currentPlayingId,
-    refetchSounds: fetchSounds,
+    refetchSounds: mutate,
   };
 };

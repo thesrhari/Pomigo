@@ -1,133 +1,130 @@
 // hooks/use-friends.ts
-import { useState, useEffect, useCallback } from "react";
+import useSWR, { useSWRConfig } from "swr";
+import useSWRMutation from "swr/mutation";
+import { useCallback } from "react";
 import { FriendsService } from "@/lib/friends-service";
 import type {
   Friend,
   FriendRequest,
   SearchResult,
   BlockedUser,
-} from "@/types/friends"; // Import BlockedUser type
+} from "@/types/friends";
 
+// Initialize the FriendsService
 const friendsService = new FriendsService();
 
+// Define the keys for our SWR cache. This helps in easy revalidation.
+const SWR_KEYS = {
+  FRIENDS: "friends",
+  INCOMING_REQUESTS: "incoming_requests",
+  OUTGOING_REQUESTS: "outgoing_requests",
+  BLOCKED_USERS: "blocked_users",
+};
+
+// A multi-fetcher function to fetch all data in parallel
+const multiFetcher = async (keys: string[]) => {
+  const [friends, incomingRequests, outgoingRequests, blockedUsers] =
+    await Promise.all([
+      friendsService.getFriends(),
+      friendsService.getIncomingRequests(),
+      friendsService.getOutgoingRequests(),
+      friendsService.getBlockedUsers(),
+    ]);
+
+  return {
+    [SWR_KEYS.FRIENDS]: friends,
+    [SWR_KEYS.INCOMING_REQUESTS]: incomingRequests,
+    [SWR_KEYS.OUTGOING_REQUESTS]: outgoingRequests,
+    [SWR_KEYS.BLOCKED_USERS]: blockedUsers,
+  };
+};
+
 export function useFriends() {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
-  const [outgoingRequests, setOutgoingRequests] = useState<FriendRequest[]>([]);
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]); // State for blocked users
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate } = useSWRConfig();
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [friendsData, incomingData, outgoingData, blockedData] =
-        await Promise.all([
-          friendsService.getFriends(),
-          friendsService.getIncomingRequests(),
-          friendsService.getOutgoingRequests(),
-          friendsService.getBlockedUsers(), // Fetch blocked users
-        ]);
+  // Fetch all data using a single useSWR hook with multiple keys
+  const { data, error, isLoading } = useSWR(
+    Object.values(SWR_KEYS),
+    multiFetcher
+  );
 
-      setFriends(friendsData);
-      setIncomingRequests(incomingData);
-      setOutgoingRequests(outgoingData);
-      setBlockedUsers(blockedData); // Set blocked users state
-    } catch (err) {
-      console.error("Error loading friend data:", err);
-      setError("Failed to load friend data");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // Function to revalidate all friend-related data
+  const refreshData = useCallback(() => {
+    mutate((key) => Object.values(SWR_KEYS).includes(key as string));
+  }, [mutate]);
 
-  const sendFriendRequest = useCallback(
-    async (username: string) => {
-      const result = await friendsService.sendFriendRequest(username);
-      if (result.success) await loadData();
+  const handleMutation = useCallback(
+    async (mutationFn: () => Promise<any>) => {
+      const result = await mutationFn();
+      if (result.success) {
+        refreshData();
+      }
       return result;
     },
-    [loadData]
+    [refreshData]
+  );
+
+  const sendFriendRequest = useCallback(
+    (username: string) =>
+      handleMutation(() => friendsService.sendFriendRequest(username)),
+    [handleMutation]
   );
 
   const acceptFriendRequest = useCallback(
-    async (relationshipId: string) => {
-      const result = await friendsService.acceptFriendRequest(relationshipId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (relationshipId: string) =>
+      handleMutation(() => friendsService.acceptFriendRequest(relationshipId)),
+    [handleMutation]
   );
 
   const declineFriendRequest = useCallback(
-    async (relationshipId: string) => {
-      const result = await friendsService.declineFriendRequest(relationshipId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (relationshipId: string) =>
+      handleMutation(() => friendsService.declineFriendRequest(relationshipId)),
+    [handleMutation]
   );
 
   const cancelFriendRequest = useCallback(
-    async (relationshipId: string) => {
-      const result = await friendsService.cancelFriendRequest(relationshipId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (relationshipId: string) =>
+      handleMutation(() => friendsService.cancelFriendRequest(relationshipId)),
+    [handleMutation]
   );
 
   const removeFriend = useCallback(
-    async (relationshipId: string) => {
-      const result = await friendsService.removeFriend(relationshipId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (relationshipId: string) =>
+      handleMutation(() => friendsService.removeFriend(relationshipId)),
+    [handleMutation]
   );
 
   const blockUser = useCallback(
-    async (userId: string) => {
-      const result = await friendsService.blockUser(userId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (userId: string) => handleMutation(() => friendsService.blockUser(userId)),
+    [handleMutation]
   );
 
-  // New function to unblock a user
   const unblockUser = useCallback(
-    async (relationshipId: string) => {
-      const result = await friendsService.unblockUser(relationshipId);
-      if (result.success) await loadData();
-      return result;
-    },
-    [loadData]
+    (relationshipId: string) =>
+      handleMutation(() => friendsService.unblockUser(relationshipId)),
+    [handleMutation]
   );
 
-  const searchUsers = useCallback(
-    async (query: string): Promise<SearchResult[]> => {
+  // Use useSWRMutation for the on-demand search functionality
+  const { trigger: searchUsers, isMutating: isSearching } = useSWRMutation(
+    "user_search",
+    async (_, { arg }: { arg: string }): Promise<SearchResult[]> => {
       try {
-        return await friendsService.searchUsers(query);
+        return await friendsService.searchUsers(arg);
       } catch (err) {
         console.error("Error searching users:", err);
         return [];
       }
-    },
-    []
+    }
   );
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   return {
-    friends,
-    incomingRequests,
-    outgoingRequests,
-    blockedUsers, // Export blocked users
+    friends: data?.[SWR_KEYS.FRIENDS] ?? [],
+    incomingRequests: data?.[SWR_KEYS.INCOMING_REQUESTS] ?? [],
+    outgoingRequests: data?.[SWR_KEYS.OUTGOING_REQUESTS] ?? [],
+    blockedUsers: data?.[SWR_KEYS.BLOCKED_USERS] ?? [],
     isLoading,
+    isSearching,
     error,
     sendFriendRequest,
     acceptFriendRequest,
@@ -135,8 +132,8 @@ export function useFriends() {
     cancelFriendRequest,
     removeFriend,
     blockUser,
-    unblockUser, // Export unblock function
+    unblockUser,
     searchUsers,
-    refreshData: loadData,
+    refreshData,
   };
 }

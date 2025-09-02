@@ -92,7 +92,7 @@ export default function DashboardPage() {
         <StatCard
           title="Top Subject"
           value={statsData?.totalTimePerSubject[0]?.name || "N/A"}
-          subtitle="This week"
+          subtitle="Today"
           icon={Book}
           variant="muted"
         />

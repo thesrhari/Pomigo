@@ -12,12 +12,12 @@ import {
 import { PomodoroSettings } from "@/components/features/PomodoroSettings";
 import { SubjectManager } from "@/components/features/SubjectManager";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
-import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
 import { Play, Pause, Settings, RotateCcw, SkipForward } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
 import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
 import { createClient } from "@/lib/supabase/client";
+import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
 
 const supabase = createClient();
 
@@ -28,10 +28,9 @@ interface SessionStatus {
   completed: boolean;
 }
 
-// For type safety with our Web Worker messages
 interface WorkerMessage {
   command: "start" | "stop";
-  duration?: number; // Corrected to use 'duration' which the worker expects
+  duration?: number;
 }
 
 export default function PomodoroPage() {
@@ -68,7 +67,7 @@ export default function PomodoroPage() {
   const isPausedRef = useRef(false);
   const previousFocusTimeRef = useRef(0);
 
-  // --- START: WEB WORKER INTEGRATION ---
+  // Web Worker integration
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -80,13 +79,10 @@ export default function PomodoroPage() {
     ) => {
       const { type, timeLeft: workerTimeLeft } = event.data;
 
-      // The worker now sends the exact time left. No need for manual decrementing.
       if (type === "tick" && workerTimeLeft !== undefined) {
         setTimeLeft(workerTimeLeft);
-      }
-      // This is the new, reliable trigger for when a session ends.
-      else if (type === "sessionEnd") {
-        // --- All session-ending logic is moved here ---
+      } else if (type === "sessionEnd") {
+        // Session-ending logic
         if (pomodoroSettings) {
           playSound(
             pomodoroSettings.selectedSoundId,
@@ -131,12 +127,7 @@ export default function PomodoroPage() {
     return () => {
       workerRef.current?.terminate();
     };
-    // Add dependencies to ensure the onmessage handler doesn't use stale state
   }, [pomodoroSettings, playSound, currentCycle, currentSessionType]);
-
-  // --- REMOVED THE CONFLICTING useEffect THAT WAS HERE ---
-  // The logic for sending messages to the worker is now correctly
-  // handled within handlePlayPause, handleReset, and handleSkipBreak.
 
   const isPomodoroSequenceActive =
     currentCycle > 1 ||
@@ -147,7 +138,7 @@ export default function PomodoroPage() {
 
   // Helper function to get session duration
   const getSessionDuration = (sessionType: SessionType): number => {
-    if (!pomodoroSettings) return 25; // Default
+    if (!pomodoroSettings) return 25; // Fallback during loading
     switch (sessionType) {
       case "study":
         return pomodoroSettings.focusTime;
@@ -281,9 +272,9 @@ export default function PomodoroPage() {
     timerRunning,
     sessionType: currentSessionType,
     currentSubject,
-    focusDuration: pomodoroSettings?.focusTime,
-    shortBreakDuration: pomodoroSettings?.shortBreak,
-    longBreakDuration: pomodoroSettings?.longBreak,
+    focusDuration: pomodoroSettings?.focusTime || 25,
+    shortBreakDuration: pomodoroSettings?.shortBreak || 5,
+    longBreakDuration: pomodoroSettings?.longBreak || 15,
   });
 
   const getButtonText = () => {
@@ -330,7 +321,7 @@ export default function PomodoroPage() {
     setCurrentSessionType("study");
     setCurrentCycle(1);
     setCompletedSessions([]);
-    setTimeLeft(pomodoroSettings?.focusTime * 60 || 1500);
+    setTimeLeft((pomodoroSettings?.focusTime || 25) * 60);
     setTimerRunning(false);
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
@@ -343,7 +334,7 @@ export default function PomodoroPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
+      if (user && newSettings) {
         await updatePomodoroSettings(newSettings, user.id);
       }
     } catch (err) {
@@ -351,7 +342,7 @@ export default function PomodoroPage() {
     }
   };
 
-  // Session Indicators Component (Unchanged)
+  // Session Indicators Component
   const SessionIndicators = () => {
     const sessionSequence = generateSessionSequence();
     const currentSessionIndex =
@@ -419,8 +410,8 @@ export default function PomodoroPage() {
     );
   };
 
-  // Loading and Error States (Updated)
-  if (loading) {
+  // Loading and Error States - Show loading until pomodoroSettings is available
+  if (loading || !pomodoroSettings) {
     return <PomodoroSkeleton />;
   }
 
@@ -440,7 +431,7 @@ export default function PomodoroPage() {
     );
   }
 
-  // JSX Return (Unchanged)
+  // JSX Return
   return (
     <>
       <div className="max-w-xl mx-auto space-y-8 px-4 py-4">

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import { createClient } from "../supabase/client";
+import { useEffect, useState } from "react";
 
 // Types
 interface Subject {
@@ -20,122 +21,109 @@ interface PomodoroSettings {
   selectedSoundId: number | null;
 }
 
-// Default settings to prevent null access
-const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
-  focusTime: 25,
-  shortBreak: 5,
-  longBreak: 15,
-  longBreakEnabled: true,
-  longBreakInterval: 4,
-  iterations: 4,
-  soundEnabled: true, // Enable by default
-  selectedSoundId: 1,
-};
-
 // Initialize Supabase client
 const supabase = createClient();
 
-export function useSupabaseData() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  // Initialize with default settings instead of null
-  const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(
-    DEFAULT_POMODORO_SETTINGS
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+async function getUser() {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error) throw error;
+    return user;
+  } catch (err) {
+    console.error("Error getting user:", err);
+    return null;
+  }
+}
 
-  async function getUser() {
-    try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (error) throw error;
-      return user;
-    } catch (err) {
-      console.error("Error getting user:", err);
-      setError("Failed to get user");
-      return null;
-    }
+// Fetcher functions for SWR
+const fetchSubjects = async (userId: string): Promise<Subject[]> => {
+  const { data, error } = await supabase
+    .from("subjects")
+    .select("id, subject_name, color")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+
+  return (
+    data?.map((subject: any) => ({
+      id: subject.id,
+      name: subject.subject_name,
+      color: subject.color,
+      totalHours: 0,
+    })) || []
+  );
+};
+
+const fetchPomodoroSettings = async (
+  userId: string
+): Promise<PomodoroSettings> => {
+  const { data, error } = await supabase
+    .from("pomodoro_settings")
+    .select(
+      "focus_duration, short_break, long_break, long_break_enabled, long_break_interval, iterations, sound_enabled, selected_sound_id"
+    )
+    .eq("user_id", userId)
+    .single();
+
+  // .single() will throw an error if no row is found, which SWR will catch.
+  // This is the desired behavior since we assume settings always exist.
+  if (error) {
+    console.error("Error fetching pomodoro settings:", error);
+    throw error;
   }
 
-  // Fetch subjects from Supabase
-  const fetchSubjects = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("subjects")
-        .select("id, subject_name, color")
-        .eq("user_id", userId);
-
-      if (error) throw error;
-
-      const typedData =
-        data?.map((subject: any) => ({
-          id: subject.id,
-          name: subject.subject_name,
-          color: subject.color,
-          totalHours: 0,
-        })) || [];
-
-      setSubjects(typedData);
-    } catch (err) {
-      console.error("Error fetching subjects:", err);
-      setError("Failed to fetch subjects");
-    }
+  // Directly map the database fields to the PomodoroSettings interface.
+  return {
+    focusTime: data.focus_duration,
+    shortBreak: data.short_break,
+    longBreak: data.long_break,
+    longBreakEnabled: data.long_break_enabled,
+    longBreakInterval: data.long_break_interval,
+    iterations: data.iterations,
+    soundEnabled: data.sound_enabled,
+    selectedSoundId: data.selected_sound_id,
   };
+};
 
-  // Fetch pomodoro settings from Supabase
-  const fetchPomodoroSettings = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("pomodoro_settings")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
+export function useSupabaseData() {
+  const { mutate } = useSWRConfig();
+  const [userId, setUserId] = useState<string | null>(null);
 
-      if (error) {
-        // If no settings found, keep default settings
-        if (error.code === "PGRST116") {
-          console.log("No pomodoro settings found, using defaults");
-          return;
-        }
-        throw error;
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getUser();
+      if (user) {
+        setUserId(user.id);
       }
+    };
+    fetchUser();
+  }, []);
 
-      // Map database fields to our interface
-      if (data) {
-        setPomodoroSettings({
-          focusTime: data.focus_duration || DEFAULT_POMODORO_SETTINGS.focusTime,
-          shortBreak: data.short_break || DEFAULT_POMODORO_SETTINGS.shortBreak,
-          longBreak: data.long_break || DEFAULT_POMODORO_SETTINGS.longBreak,
-          longBreakEnabled:
-            data.long_break_enabled ??
-            DEFAULT_POMODORO_SETTINGS.longBreakEnabled,
-          longBreakInterval:
-            data.long_break_interval ||
-            DEFAULT_POMODORO_SETTINGS.longBreakInterval,
-          iterations: data.iterations || DEFAULT_POMODORO_SETTINGS.iterations,
-          soundEnabled:
-            data.sound_enabled ?? DEFAULT_POMODORO_SETTINGS.soundEnabled,
-          selectedSoundId:
-            data.selected_sound_id || DEFAULT_POMODORO_SETTINGS.selectedSoundId,
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching pomodoro settings:", err);
-      setError("Failed to fetch pomodoro settings");
-      // Keep default settings on error
-    }
-  };
+  const {
+    data: subjects,
+    error: subjectsError,
+    isLoading: subjectsLoading,
+  } = useSWR<Subject[]>(userId ? ["subjects", userId] : null, () =>
+    fetchSubjects(userId!)
+  );
 
-  // Update subjects in Supabase
+  const {
+    data: pomodoroSettings,
+    error: pomodoroError,
+    isLoading: pomodoroLoading,
+  } = useSWR<PomodoroSettings>(
+    userId ? ["pomodoro_settings", userId] : null,
+    () => fetchPomodoroSettings(userId!)
+    // We remove `fallbackData` to prevent the flash of default content.
+    // `pomodoroSettings` will be `undefined` until data is loaded.
+  );
+
   const updateSubjects = async (subject: Subject) => {
     try {
-      // Check if this is a new subject (no existing ID in our state) or an update
-      const existingSubject = subjects.find((s) => s.id === subject.id);
-
-      if (existingSubject) {
-        // Update existing subject
+      if (subjects && subjects.find((s) => s.id === subject.id)) {
         const { error } = await supabase
           .from("subjects")
           .update({
@@ -143,48 +131,29 @@ export function useSupabaseData() {
             color: subject.color,
           })
           .eq("id", subject.id);
-
         if (error) throw error;
-
-        // Update local state
-        setSubjects((prev) =>
-          prev.map((s) =>
-            s.id === subject.id
-              ? { ...s, name: subject.name, color: subject.color }
-              : s
-          )
-        );
-      } else {
-        // Add new subject to local state (it was already inserted in the component)
-        setSubjects((prev) => [...prev, subject]);
+        mutate(["subjects", userId]);
       }
     } catch (err) {
       console.error("Error updating subjects:", err);
-      setError("Failed to update subject");
-      throw err; // Re-throw so component can handle the error
+      throw err;
     }
   };
 
-  // Delete subject from Supabase
   const deleteSubject = async (subjectId: number) => {
     try {
       const { error } = await supabase
         .from("subjects")
         .delete()
         .eq("id", subjectId);
-
       if (error) throw error;
-
-      // Update local state
-      setSubjects((prev) => prev.filter((s) => s.id !== subjectId));
+      mutate(["subjects", userId]);
     } catch (err) {
       console.error("Error deleting subject:", err);
-      setError("Failed to delete subject");
       throw err;
     }
   };
 
-  // Update pomodoro settings in Supabase
   const updatePomodoroSettings = async (
     newSettings: PomodoroSettings,
     userId: string
@@ -201,51 +170,21 @@ export function useSupabaseData() {
         sound_enabled: newSettings.soundEnabled,
         selected_sound_id: newSettings.selectedSoundId,
       });
-
       if (error) throw error;
-
-      // Update local state
-      setPomodoroSettings(newSettings);
+      mutate(["pomodoro_settings", userId]);
     } catch (err) {
       console.error("Error updating pomodoro settings:", err);
-      setError("Failed to update pomodoro settings");
-      throw err; // Re-throw so component can handle the error
+      throw err;
     }
   };
 
-  // Fetch data on mount
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const user = await getUser();
-        if (!user) {
-          setError("No authenticated user found");
-          return;
-        }
-
-        await Promise.all([
-          fetchSubjects(user.id),
-          fetchPomodoroSettings(user.id),
-        ]);
-      } catch (err) {
-        console.error("Error in fetchData:", err);
-        setError("Failed to fetch data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
   return {
-    subjects,
+    subjects: subjects || [],
+    // `pomodoroSettings` is now returned directly. It will be `undefined` during the initial fetch.
     pomodoroSettings,
-    loading,
-    error,
+    // The `loading` state should be used in the UI to show a loading indicator.
+    loading: subjectsLoading || pomodoroLoading,
+    error: subjectsError || pomodoroError,
     updateSubjects,
     deleteSubject,
     updatePomodoroSettings,
