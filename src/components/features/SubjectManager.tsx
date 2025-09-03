@@ -41,8 +41,23 @@ interface SubjectManagerProps {
 }
 
 const formatDuration = (minutes: number) => {
-  const hours = Math.floor(minutes) / 60;
-  return `${hours.toFixed(1)}`;
+  // Handle cases where the input is 0 or not a valid number
+  if (!minutes || minutes < 0) {
+    return "0min";
+  }
+
+  // Calculate the whole number of hours
+  const hours = Math.floor(minutes / 60);
+
+  // Calculate the remaining minutes using the modulo operator
+  const remainingMinutes = minutes % 60;
+
+  // Build the formatted string
+  const hoursString = hours > 0 ? `${hours}hr` : "";
+  const minutesString = remainingMinutes > 0 ? `${remainingMinutes}min` : "";
+
+  // Join the parts with a space, ensuring no leading/trailing spaces
+  return [hoursString, minutesString].filter(Boolean).join(" ");
 };
 
 export const SubjectManager: React.FC<SubjectManagerProps> = ({
@@ -288,7 +303,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                                 {subject.name}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {formatDuration(subject.totalHours)}h studied
+                                {formatDuration(subject.totalHours)} studied
                               </div>
                             </div>
                           </div>

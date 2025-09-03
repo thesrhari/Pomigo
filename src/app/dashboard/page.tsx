@@ -19,6 +19,26 @@ import { StatCard } from "./components/StatCard";
 import { FriendsActivity } from "./components/FriendsActivity";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 
+const formatDuration = (minutes: number) => {
+  // Handle cases where the input is 0 or not a valid number
+  if (!minutes || minutes < 0) {
+    return "0min";
+  }
+
+  // Calculate the whole number of hours
+  const hours = Math.floor(minutes / 60);
+
+  // Calculate the remaining minutes using the modulo operator
+  const remainingMinutes = minutes % 60;
+
+  // Build the formatted string
+  const hoursString = hours > 0 ? `${hours}hr` : "";
+  const minutesString = remainingMinutes > 0 ? `${remainingMinutes}min` : "";
+
+  // Join the parts with a space, ensuring no leading/trailing spaces
+  return [hoursString, minutesString].filter(Boolean).join(" ");
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const { userName, weeklyData, statsData, statsLoading, statsError } =
@@ -69,8 +89,8 @@ export default function DashboardPage() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Hours Today"
-          value={statsData ? (statsData.totalStudyTime / 60).toFixed(1) : "0.0"}
+          title="Time Today"
+          value={statsData ? formatDuration(statsData.totalStudyTime) : "0.0"}
           subtitle="Keep it up!"
           icon={Timer}
           variant="primary"

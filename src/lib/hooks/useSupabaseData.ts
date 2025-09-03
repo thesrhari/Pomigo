@@ -149,14 +149,36 @@ export function useSupabaseData() {
 
   const updateSubjects = async (subject: Subject) => {
     try {
-      if (subjects && subjects.find((s) => s.id === subject.id)) {
-        const { error } = await supabase
-          .from("subjects")
-          .update({ subject_name: subject.name, color: subject.color })
-          .eq("id", subject.id);
-        if (error) throw error;
-        mutate(["subjects", userId]);
-      }
+      if (!userId) throw new Error("User not found");
+
+      // Get the original subject name before updating
+      const { data: originalSubject, error: fetchError } = await supabase
+        .from("subjects")
+        .select("subject_name")
+        .eq("id", subject.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const oldSubjectName = originalSubject.subject_name;
+
+      // Update the subject
+      const { error: updateError } = await supabase
+        .from("subjects")
+        .update({ subject_name: subject.name, color: subject.color })
+        .eq("id", subject.id);
+      if (updateError) throw updateError;
+
+      // Update the sessions with the new subject name
+      const { error: updateSessionsError } = await supabase
+        .from("sessions")
+        .update({ subject: subject.name })
+        .eq("user_id", userId)
+        .eq("subject", oldSubjectName);
+
+      if (updateSessionsError) throw updateSessionsError;
+
+      mutate(["subjects", userId]);
     } catch (err) {
       console.error("Error updating subjects:", err);
       throw err;
@@ -165,11 +187,45 @@ export function useSupabaseData() {
 
   const deleteSubject = async (subjectId: number) => {
     try {
-      const { error } = await supabase
+      if (!userId) throw new Error("User not found");
+
+      // Get the name of the subject to be deleted
+      const { data: subjectToDelete, error: fetchError } = await supabase
+        .from("subjects")
+        .select("subject_name")
+        .eq("id", subjectId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const subjectNameToDelete = subjectToDelete.subject_name;
+
+      // Get the 'Uncategorized' subject id
+      const { data: uncategorizedSubject, error: uncategorizedError } =
+        await supabase
+          .from("subjects")
+          .select("subject_name")
+          .eq("user_id", userId)
+          .eq("subject_name", "Uncategorized")
+          .single();
+
+      if (uncategorizedError) throw uncategorizedError;
+
+      // Update sessions related to the deleted subject
+      const { error: updateError } = await supabase
+        .from("sessions")
+        .update({ subject: uncategorizedSubject.subject_name })
+        .eq("user_id", userId)
+        .eq("subject", subjectNameToDelete);
+
+      if (updateError) throw updateError;
+
+      // Delete the subject
+      const { error: deleteError } = await supabase
         .from("subjects")
         .delete()
         .eq("id", subjectId);
-      if (error) throw error;
+      if (deleteError) throw deleteError;
       mutate(["subjects", userId]);
     } catch (err) {
       console.error("Error deleting subject:", err);
