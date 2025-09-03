@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,11 @@ interface SubjectManagerProps {
   deleteSubject?: (subjectId: number) => Promise<void>;
 }
 
+const formatDuration = (minutes: number) => {
+  const hours = Math.floor(minutes) / 60;
+  return `${hours.toFixed(1)}`;
+};
+
 export const SubjectManager: React.FC<SubjectManagerProps> = ({
   subjects,
   addSubject: addSubjectProp,
@@ -53,6 +58,10 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     name: "",
     color: "#3B82F6",
   });
+
+  useEffect(() => {
+    console.log(subjects);
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const presetColors = [
     "#3B82F6",
@@ -279,7 +288,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                                 {subject.name}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {subject.totalHours}h studied
+                                {formatDuration(subject.totalHours)}h studied
                               </div>
                             </div>
                           </div>
@@ -437,8 +446,9 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the subject {deletingSubject?.name}
-              and all associated data. This action cannot be undone.
+              This will permanently delete the subject{" "}
+              <span className="font-bold">{deletingSubject?.name}</span> and all
+              associated data. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -40,19 +40,38 @@ async function getUser() {
 
 // Fetcher functions for SWR
 const fetchSubjects = async (userId: string): Promise<Subject[]> => {
-  const { data, error } = await supabase
+  // First get all subjects
+  const { data: subjectsData, error: subjectsError } = await supabase
     .from("subjects")
     .select("id, subject_name, color")
     .eq("user_id", userId);
 
-  if (error) throw error;
+  if (subjectsError) throw subjectsError;
+
+  // Then get study session totals for each subject
+  const { data: sessionTotals, error: sessionError } = await supabase
+    .from("sessions")
+    .select("subject, duration")
+    .eq("user_id", userId)
+    .eq("session_type", "study");
+
+  if (sessionError) throw sessionError;
+
+  // Create a map of subject names to total minutes
+  const totalsBySubject =
+    sessionTotals?.reduce((acc: Record<string, number>, session) => {
+      if (session.subject) {
+        acc[session.subject] = (acc[session.subject] || 0) + session.duration;
+      }
+      return acc;
+    }, {}) || {};
 
   return (
-    data?.map((subject: any) => ({
+    subjectsData?.map((subject: any) => ({
       id: subject.id,
       name: subject.subject_name,
       color: subject.color,
-      totalHours: 0,
+      totalHours: totalsBySubject[subject.subject_name] || 0, // Total minutes
     })) || []
   );
 };
