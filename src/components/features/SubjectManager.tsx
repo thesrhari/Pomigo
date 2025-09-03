@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Edit3, Trash2, Palette } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { PostgrestError } from "@supabase/supabase-js";
 
 const supabase = createClient();
 
@@ -98,8 +100,13 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
       setNewSubject({ name: "", color: "#3B82F6" });
       setIsOpen(false);
     } catch (err) {
-      console.error("Error adding subject:", err);
-      alert("Failed to add subject. Please try again.");
+      const error = err as PostgrestError;
+      if (error.code === "23505") {
+        toast.error(`${newSubject.name} already exists. Try another name.`);
+      } else {
+        console.error("Error adding subject:", err);
+        toast.error("Failed to add subject. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }

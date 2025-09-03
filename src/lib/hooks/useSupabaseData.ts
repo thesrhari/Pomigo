@@ -142,7 +142,6 @@ export function useSupabaseData() {
       if (error) throw error;
       mutate(["subjects", userId]);
     } catch (err) {
-      console.error("Error adding subject:", err);
       throw err;
     }
   };
