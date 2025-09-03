@@ -360,7 +360,7 @@ export default function ProfilePage() {
                     placeholder="Tell your study buddies about yourself..."
                     value={profile.bio || ""}
                     onChange={handleInputChange}
-                    className="min-h-[120px]"
+                    className="min-h-[120px] placeholder:text-muted-foreground/60"
                   />
                 </div>
               </CardContent>
