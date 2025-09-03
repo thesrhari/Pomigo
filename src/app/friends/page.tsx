@@ -3,47 +3,25 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import {
-  MessageCircle,
-  Activity,
-  UserPlus,
-  X,
-  Users,
-  Clock,
-  Send,
-  Check,
-  Search,
-  UserX,
-  Shield,
-  MoreHorizontal,
-  ShieldOff,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Activity, UserPlus, Users, Send, Shield } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
 import type { SearchResult } from "@/types/friends";
-import FriendsPageSkeleton from "./components/FriendsSkeleton"; // Import the skeleton component
+import FriendsPageSkeleton from "./components/FriendsSkeleton";
+import AddFriendModal from "./components/AddFriendModal"; // Adjust path as needed
+import FriendCard from "./components/FriendCard"; // Adjust path as needed
 
 export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState<
-    "friends" | "incoming" | "outgoing" | "blocked" // Add 'blocked' to the type
+    "friends" | "incoming" | "outgoing" | "blocked"
   >("friends");
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
-  const [searchUsername, setSearchUsername] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
 
   const {
     friends,
     incomingRequests,
     outgoingRequests,
-    blockedUsers, // Destructure blockedUsers
+    blockedUsers,
     isLoading,
     sendFriendRequest,
     acceptFriendRequest,
@@ -51,33 +29,17 @@ export default function FriendsPage() {
     cancelFriendRequest,
     removeFriend,
     blockUser,
-    unblockUser, // Destructure unblockUser
+    unblockUser,
     searchUsers,
   } = useFriends();
 
   // --- Handler Functions ---
-
-  const handleSearch = async () => {
-    if (!searchUsername.trim()) return;
-    setIsSearching(true);
-    try {
-      const results = await searchUsers(searchUsername.replace("@", ""));
-      setSearchResults(results);
-    } catch (error) {
-      console.error("Error searching users:", error);
-      toast.error("Failed to search for users.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleSendRequest = async (username: string) => {
     try {
       const result = await sendFriendRequest(username);
       if (result.success) {
         toast.success("Friend request sent!");
-        setSearchResults([]);
-        setSearchUsername("");
         setShowAddFriendModal(false);
       } else {
         toast.error(result.error?.message || "Failed to send friend request.");
@@ -164,7 +126,6 @@ export default function FriendsPage() {
     }
   };
 
-  // New handler for unblocking a user
   const handleUnblockUser = async (relationshipId: string) => {
     try {
       const result = await unblockUser(relationshipId);
@@ -234,10 +195,86 @@ export default function FriendsPage() {
     </button>
   );
 
-  // Use the new skeleton component when isLoading is true
   if (isLoading) {
     return <FriendsPageSkeleton />;
   }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "friends":
+        return friends.length > 0 ? (
+          friends.map((friend) => (
+            <FriendCard
+              key={friend.id}
+              user={friend}
+              type="friend"
+              onRemove={handleRemoveFriend}
+              onBlock={handleBlockUser}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              No friends yet. Start by adding some!
+            </p>
+          </div>
+        );
+      case "incoming":
+        return incomingRequests.length > 0 ? (
+          incomingRequests.map((request) => (
+            <FriendCard
+              key={request.id}
+              user={request}
+              type="incoming"
+              onAccept={handleAcceptRequest}
+              onReject={handleRejectRequest}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No pending friend requests</p>
+          </div>
+        );
+      case "outgoing":
+        return outgoingRequests.length > 0 ? (
+          outgoingRequests.map((request) => (
+            <FriendCard
+              key={request.id}
+              user={request}
+              type="outgoing"
+              onCancel={handleCancelRequest}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <Send className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No outgoing friend requests</p>
+          </div>
+        );
+      case "blocked":
+        return blockedUsers.length > 0 ? (
+          blockedUsers.map((user) => (
+            <FriendCard
+              key={user.id}
+              user={user}
+              type="blocked"
+              onUnblock={handleUnblockUser}
+            />
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              You haven&apos;t blocked any users.
+            </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -259,7 +296,6 @@ export default function FriendsPage() {
 
       {/* Tabs */}
       <div className="flex justify-between items-center p-1 bg-muted rounded-lg">
-        {/* Left-aligned tabs */}
         <div className="flex flex-wrap gap-2">
           <TabButton tab="friends" label="Friends" count={friends.length} />
           <TabButton
@@ -273,274 +309,13 @@ export default function FriendsPage() {
             count={outgoingRequests.length}
           />
         </div>
-
-        {/* Right-aligned tab */}
         <div>
           <TabButton tab="blocked" label="Blocked" showCount={false} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          {activeTab === "friends" && (
-            <>
-              {friends.map((friend) => (
-                <Card
-                  key={friend.id}
-                  className="border-border bg-card hover:shadow-md transition-shadow duration-200"
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-lg font-medium">
-                            {friend.avatar_url ? (
-                              <img
-                                src={friend.avatar_url}
-                                alt={friend.name}
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                            ) : (
-                              friend.name.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-card-foreground">
-                            {friend.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            @{friend.username}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-border"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-border"
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleRemoveFriend(friend.relationship_id)
-                              }
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <UserX className="w-4 h-4 mr-2" />
-                              Remove Friend
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleBlockUser(friend.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Shield className="w-4 h-4 mr-2" />
-                              Block User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {friends.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No friends yet. Start by adding some!
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === "incoming" && (
-            <>
-              {incomingRequests.map((request) => (
-                <Card key={request.id} className="border-border bg-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-lg font-medium">
-                          {request.avatar_url ? (
-                            <img
-                              src={request.avatar_url}
-                              alt={request.name}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            request.name.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-card-foreground">
-                            {request.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            @{request.username}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            handleAcceptRequest(request.relationship_id)
-                          }
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        >
-                          <Check className="w-4 h-4 mr-1" />
-                          Accept
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleRejectRequest(request.relationship_id)
-                          }
-                          className="border-border"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {incomingRequests.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No pending friend requests
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === "outgoing" && (
-            <>
-              {outgoingRequests.map((request) => (
-                <Card key={request.id} className="border-border bg-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-lg font-medium">
-                          {request.avatar_url ? (
-                            <img
-                              src={request.avatar_url}
-                              alt={request.name}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            request.name.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-card-foreground">
-                            {request.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            @{request.username}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className="border-border">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Pending
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleCancelRequest(request.relationship_id)
-                          }
-                          className="border-border text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {outgoingRequests.length === 0 && (
-                <div className="text-center py-12">
-                  <Send className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    No outgoing friend requests
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* New Blocked Users Tab Content */}
-          {activeTab === "blocked" && (
-            <>
-              {blockedUsers.map((user) => (
-                <Card key={user.id} className="border-border bg-card">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center text-lg font-medium">
-                          {user.avatar_url ? (
-                            <img
-                              src={user.avatar_url}
-                              alt={user.name}
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            user.name.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-card-foreground">
-                            {user.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            @{user.username}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUnblockUser(user.relationship_id)}
-                        className="border-border"
-                      >
-                        <ShieldOff className="w-4 h-4 mr-2" />
-                        Unblock
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {blockedUsers.length === 0 && (
-                <div className="text-center py-12">
-                  <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    You haven&apos;t blocked any users.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <div className="lg:col-span-2 space-y-4">{renderContent()}</div>
 
         <Card className="border-border bg-card h-fit">
           <CardHeader>
@@ -557,101 +332,13 @@ export default function FriendsPage() {
         </Card>
       </div>
 
-      {showAddFriendModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md shadow-xl">
-            <CardHeader className="border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Add Friends</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowAddFriendModal(false);
-                    setSearchResults([]);
-                    setSearchUsername("");
-                  }}
-                  className="text-muted-foreground hover:text-card-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="Enter username (e.g., @username)"
-                  value={searchUsername}
-                  onChange={(e) => setSearchUsername(e.target.value)}
-                  className="flex-1 border-border bg-background"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-                <Button
-                  onClick={handleSearch}
-                  disabled={isSearching || !searchUsername.trim()}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Search className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {isSearching && (
-                <div className="text-center py-8">
-                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
-                </div>
-              )}
-
-              {searchResults.length > 0 && (
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {searchResults.map((user) => {
-                    const buttonState = getButtonState(user);
-                    return (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between p-3 border border-border rounded-lg bg-background/50"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-sm font-medium">
-                            {user.avatar_url ? (
-                              <img
-                                src={user.avatar_url}
-                                alt={user.name}
-                                className="w-10 h-10 rounded-full object-cover"
-                              />
-                            ) : (
-                              user.name.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-card-foreground">
-                              {user.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              @{user.username}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant={buttonState.variant}
-                          onClick={() => {
-                            if (buttonState.text === "Add") {
-                              handleSendRequest(user.username);
-                            }
-                          }}
-                          disabled={buttonState.disabled}
-                        >
-                          {buttonState.text}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <AddFriendModal
+        isOpen={showAddFriendModal}
+        onClose={() => setShowAddFriendModal(false)}
+        onSearch={searchUsers}
+        onSendRequest={handleSendRequest}
+        getButtonState={getButtonState}
+      />
     </div>
   );
 }

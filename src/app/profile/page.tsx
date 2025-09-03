@@ -70,6 +70,21 @@ export default function ProfilePage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(
+          "Invalid file type. Please select a JPG, PNG, or WEBP image."
+        );
+        return;
+      }
+
+      if (file.size > maxSize) {
+        toast.error("File size exceeds the 10MB limit.");
+        return;
+      }
+
       setSelectedImage(file);
       setEditorOpen(true);
       e.target.value = "";
@@ -292,7 +307,7 @@ export default function ProfilePage() {
                     type="file"
                     ref={avatarInputRef}
                     style={{ display: "none" }}
-                    accept="image/png, image/jpeg"
+                    accept="image/png, image/jpeg, image/webp"
                     onChange={handleFileSelect}
                   />
                   <div className="space-y-2">
@@ -307,7 +322,7 @@ export default function ProfilePage() {
                       {uploading ? "Uploading..." : "Change Avatar"}
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      JPG or PNG. Max size of 1MB.
+                      JPG, PNG, or WEBP. Max 10MB.
                     </p>
                   </div>
                 </div>

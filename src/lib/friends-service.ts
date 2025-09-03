@@ -330,24 +330,48 @@ export class FriendsService {
     relationshipId: string
   ): Promise<{ success: boolean; error?: FriendSystemError }> {
     try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: { message: "Not authenticated" } };
+      }
+
+      const { data: relationship, error: fetchError } = await this.supabase
+        .from("friend_relationships")
+        .select("requester_id, addressee_id")
+        .eq("id", relationshipId)
+        .single();
+
+      if (fetchError || !relationship) {
+        return {
+          success: false,
+          error: { message: "Failed to find the friend request." },
+        };
+      }
+
       const { error } = await this.supabase
         .from("friend_relationships")
-        .update({ status: "declined" })
+        .update({
+          status: "blocked",
+          requester_id: user.id, // The current user is blocking the sender
+          addressee_id: relationship.requester_id, // The sender of the request is being blocked
+        })
         .eq("id", relationshipId);
 
       if (error) {
         return {
           success: false,
-          error: { message: "Failed to decline friend request" },
+          error: { message: "Failed to block the user." },
         };
       }
 
       return { success: true };
     } catch (error) {
-      console.error("Error declining friend request:", error);
+      console.error("Error declining and blocking user:", error);
       return {
         success: false,
-        error: { message: "An unexpected error occurred" },
+        error: { message: "An unexpected error occurred." },
       };
     }
   }
@@ -551,8 +575,6 @@ export class FriendsService {
         .ilike("username", `%${query}%`)
         .neq("id", user.id) // Exclude current user
         .limit(10);
-
-      console.log(profiles);
 
       if (error) {
         console.error("Error searching users:", error);
