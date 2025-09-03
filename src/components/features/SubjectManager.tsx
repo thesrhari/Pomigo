@@ -74,9 +74,6 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     color: "#3B82F6",
   });
 
-  useEffect(() => {
-    console.log(subjects);
-  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const presetColors = [
     "#3B82F6",

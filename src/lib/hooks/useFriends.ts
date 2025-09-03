@@ -45,7 +45,7 @@ export function useFriends() {
 
   // Function to revalidate all friend-related data
   const refreshData = useCallback(() => {
-    mutate((key) => Object.values(SWR_KEYS).includes(key as string));
+    mutate(Object.values(SWR_KEYS));
   }, [mutate]);
 
   const handleMutation = useCallback(
