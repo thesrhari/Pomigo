@@ -45,7 +45,6 @@ import { PersonaCard } from "./components/PersonaCard";
 import { PlaceholderCard } from "./components/PlaceholderCard";
 import { ContributionGraph } from "./components/ContributionGraph";
 import { FunStatsData } from "@/lib/hooks/useAnalyticsData";
-// --- NEW ---
 import { AnalyticsPageSkeleton } from "./components/AnalyticsPageSkeleton";
 
 // ... (rest of the helper functions: formatMinutes, formatHour)
@@ -95,7 +94,7 @@ export default function AnalyticsPage() {
   const personaContent = productiveHours
     ? {
         title: productiveHours.isEarlyBird ? "Early Bird" : "Night Owl",
-        description: `You're most productive between ${formatHour(
+        description: `You complete the most number of sessions between ${formatHour(
           productiveHours.start
         )} and ${formatHour(productiveHours.end)}!`,
         icon: productiveHours.isEarlyBird ? Sun : Moon,
@@ -181,7 +180,6 @@ const FilterableContent = ({
     totalStudyTime,
     totalStudySessions,
     averageSessionLength,
-    previousPeriodData,
     totalTimePerSubject,
     totalBreakTime,
     totalShortBreakTime,
@@ -196,16 +194,12 @@ const FilterableContent = ({
           value={formatMinutes(totalStudyTime)}
           icon={Brain}
           color="--primary"
-          comparisonValue={previousPeriodData?.totalStudyTime}
-          numericValue={totalStudyTime}
         />
         <StatCard
           title="Focus Sessions"
           value={totalStudySessions.toString()}
           icon={Target}
           color="--chart-2"
-          comparisonValue={previousPeriodData?.totalStudySessions}
-          numericValue={totalStudySessions}
         />
         <StatCard
           title="Avg. Session Length"

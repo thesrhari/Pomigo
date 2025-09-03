@@ -366,11 +366,11 @@ function calculateProductiveHours(
   const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
   const peakHour = parseInt(sortedHours[0][0]);
 
-  // A simple approach: find the peak hour and the next most common one.
-  const secondHour =
-    sortedHours.length > 1 ? parseInt(sortedHours[1][0]) : peakHour;
-  const start = Math.min(peakHour, secondHour);
-  const end = Math.max(peakHour, secondHour);
+  // --- CORRECTED LOGIC ---
+  // Define the productive period as a one-hour window starting from the peak hour.
+  const start = peakHour;
+  const end = peakHour + 1;
+  // --- END OF CORRECTION ---
 
   return {
     start,
