@@ -28,7 +28,7 @@ import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner"; // or your preferred toast library
+import { toast } from "sonner";
 
 const formatDuration = (minutes: number) => {
   if (typeof minutes !== "number" || isNaN(minutes)) {
@@ -58,10 +58,16 @@ export default function ProfilePage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isEditorOpen, setEditorOpen] = useState(false);
 
+  // Validation states
+  const [displayNameError, setDisplayNameError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+
   // Account deletion states
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmationUsername, setConfirmationUsername] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const supabase = createClient();
 
   useEffect(() => {
     setIsClient(true);
@@ -112,12 +118,63 @@ export default function ProfilePage() {
   };
 
   const handleSaveChanges = async () => {
-    if (!profile) return;
-    await updateProfile({
-      display_name: profile.display_name,
-      username: profile.username,
-      bio: profile.bio,
-    });
+    if (!profile || !user) return;
+
+    // Reset previous errors
+    setDisplayNameError("");
+    setUsernameError("");
+
+    // --- Validation Logic ---
+    let isValid = true;
+    if (profile.display_name.trim().length < 3) {
+      setDisplayNameError("Display name must be at least 3 characters.");
+      isValid = false;
+    }
+    if (profile.username.trim().length < 3) {
+      setUsernameError("Username must be at least 3 characters.");
+      isValid = false;
+    }
+
+    if (!isValid) {
+      return; // Stop if validation fails
+    }
+
+    try {
+      // Check if username is taken, but only if it has been changed
+      const { data: originalProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
+      if (originalProfile && originalProfile.username !== profile.username) {
+        const { data: existingUser, error } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("username", profile.username)
+          .single();
+
+        if (existingUser) {
+          setUsernameError("This username is already taken.");
+          toast.error("Username is taken", {
+            description: "Please choose a different username.",
+          });
+          return;
+        }
+      }
+
+      // If all checks pass, proceed with the update
+      await updateProfile({
+        display_name: profile.display_name.trim(),
+        username: profile.username.trim(),
+        bio: profile.bio.trim(),
+      });
+    } catch (error) {
+      toast.error("Failed to update profile", {
+        description: "An unexpected error occurred. Please try again.",
+      });
+      console.error("Error updating profile:", error);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -138,7 +195,6 @@ export default function ProfilePage() {
       }
 
       toast.success("Your account has been successfully deleted.");
-      const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/");
     } catch (error) {
@@ -333,7 +389,13 @@ export default function ProfilePage() {
                       id="display_name"
                       value={profile.display_name}
                       onChange={handleInputChange}
+                      className={displayNameError ? "border-destructive" : ""}
                     />
+                    {displayNameError && (
+                      <p className="text-sm text-destructive pt-1">
+                        {displayNameError}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
@@ -341,7 +403,13 @@ export default function ProfilePage() {
                       id="username"
                       value={profile.username}
                       onChange={handleInputChange}
+                      className={usernameError ? "border-destructive" : ""}
                     />
+                    {usernameError && (
+                      <p className="text-sm text-destructive pt-1">
+                        {usernameError}
+                      </p>
+                    )}
                   </div>
                   <div className="col-span-1 sm:col-span-2 space-y-2">
                     <Label htmlFor="email">Email Address</Label>
