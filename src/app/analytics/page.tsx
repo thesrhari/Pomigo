@@ -102,8 +102,7 @@ export default function AnalyticsPage() {
     : null;
 
   return (
-    // ... (rest of the component remains unchanged)
-    <div className="space-y-8 p-4 md:p-6">
+    <div className="space-y-8 p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
@@ -111,7 +110,11 @@ export default function AnalyticsPage() {
             Your study habits, visualized.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+      </div>
+
+      {/* --- FILTERABLE SECTION --- */}
+      <Card>
+        <div className="flex justify-end items-center space-x-2 px-8">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select
             value={dateFilter}
@@ -128,11 +131,7 @@ export default function AnalyticsPage() {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      {/* --- FILTERABLE SECTION --- */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
+        <CardContent className=" space-y-6">
           <FilterableContent data={data} />
         </CardContent>
       </Card>
