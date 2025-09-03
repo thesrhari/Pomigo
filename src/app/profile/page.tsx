@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,18 +14,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner"; // or your preferred toast library
 
 const formatDuration = (minutes: number) => {
+  if (typeof minutes !== "number" || isNaN(minutes)) {
+    return "0.0h";
+  }
   const hours = Math.floor(minutes) / 60;
   return `${hours.toFixed(1)}h`;
 };
 
 export default function ProfilePage() {
+  const [isClient, setIsClient] = useState(false);
+  const router = useRouter();
   const {
     user,
     profile,
@@ -41,6 +57,15 @@ export default function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isEditorOpen, setEditorOpen] = useState(false);
+
+  // Account deletion states
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [confirmationUsername, setConfirmationUsername] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,17 +105,50 @@ export default function ProfilePage() {
     });
   };
 
-  const getAvatarFallback = () => {
-    if (profile?.display_name) {
-      return profile.display_name.slice(0, 2).toUpperCase();
+  const handleDeleteAccount = async () => {
+    if (!user || !profile) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch("/api/delete-account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to delete account");
+      }
+
+      toast.success("Your account has been successfully deleted.");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      toast.error(`Failed to delete account: ${errorMessage}`);
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setConfirmationUsername("");
     }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return "??";
   };
 
-  if (loading) {
+  const openDeleteDialog = () => {
+    setIsDeleteDialogOpen(true);
+    setConfirmationUsername("");
+  };
+
+  const closeDeleteDialog = () => {
+    setIsDeleteDialogOpen(false);
+    setConfirmationUsername("");
+  };
+
+  if (!isClient || loading) {
     return <ProfilePageSkeleton />;
   }
 
@@ -104,6 +162,20 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  const isDeleteConfirmationValid =
+    confirmationUsername === profile?.username &&
+    confirmationUsername.length > 0;
+
+  const getAvatarFallback = () => {
+    if (profile?.display_name) {
+      return profile.display_name.slice(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return "??";
+  };
 
   const journeyStats = stats
     ? [
@@ -127,6 +199,67 @@ export default function ProfilePage() {
         image={selectedImage}
         onSave={handleSaveCroppedImage}
       />
+
+      {/* Account Deletion Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Account
+            </DialogTitle>
+            <DialogDescription className="space-y-2 flex flex-col">
+              <span className="mt-2">
+                This action will permanently delete your account and all
+                associated data. This cannot be undone.
+              </span>
+              <span>
+                To confirm, please type your username{" "}
+                <span className="font-semibold">{profile.username}</span> below:
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmation-username">Username</Label>
+            <Input
+              id="confirmation-username"
+              value={confirmationUsername}
+              onChange={(e) => setConfirmationUsername(e.target.value)}
+              placeholder={profile.username}
+              className={
+                confirmationUsername.length > 0 && !isDeleteConfirmationValid
+                  ? "border-destructive"
+                  : ""
+              }
+            />
+            {confirmationUsername.length > 0 && !isDeleteConfirmationValid && (
+              <p className="text-sm text-destructive">
+                Username does not match
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={closeDeleteDialog}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={!isDeleteConfirmationValid || isDeleting}
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isDeleting ? "Deleting..." : "Delete Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="container mx-auto max-w-6xl space-y-8 p-4 sm:p-6 lg:p-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -276,7 +409,11 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button variant="destructive" className="w-full">
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={openDeleteDialog}
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete My Account
                 </Button>
