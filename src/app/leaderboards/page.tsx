@@ -12,7 +12,6 @@ import {
   Target,
   Crown,
   Award,
-  UserPlus,
 } from "lucide-react";
 import {
   useLeaderboardData,
@@ -225,14 +224,15 @@ export default function MinimalLeaderboard() {
           </div>
         </div>
 
-        {sortedUsers.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
-            <UserPlus className="w-12 h-12 text-muted-foreground mx-auto" />
+        {friends.length === 0 ? (
+          <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4 flex flex-col items-center">
+            <Trophy className="w-12 h-12 text-yellow-500/80 mx-auto" />
             <h3 className="text-lg font-semibold text-foreground">
-              It&apos;s quiet in here...
+              Start a Friendly Competition!
             </h3>
-            <p className="text-muted-foreground text-sm">
-              Add friends to start competing on the leaderboard!
+            <p className="text-muted-foreground text-sm max-w-xs">
+              Invite friends to see how you stack up. A little competition makes
+              studying more fun.
             </p>
           </div>
         ) : (
