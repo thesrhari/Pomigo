@@ -37,10 +37,11 @@ export const ContributionGraph = ({ data, year }: ContributionGraphProps) => {
   const getColor = (count: number) => {
     if (count <= 0) return "var(--border)";
     const intensity = Math.min(count / maxCount, 1);
-    if (intensity > 0.75) return "var(--chart-1)";
-    if (intensity > 0.5) return "var(--chart-2)";
-    if (intensity > 0.25) return "var(--chart-3)";
-    return "var(--chart-4)";
+    if (intensity > 0.75) return "var(--cont-graph-4)";
+    if (intensity > 0.5) return "var(--cont-graph-3)";
+    if (intensity > 0.25) return "var(--cont-graph-2)";
+    if (intensity > 0.1) return "var(--cont-graph-1)";
+    return "var(--cont-graph-5)";
   };
 
   const startDate = startOfWeek(new Date(year, 0, 1), { weekStartsOn: 1 });
@@ -139,23 +140,23 @@ export const ContributionGraph = ({ data, year }: ContributionGraphProps) => {
         <div className="flex gap-1">
           <div
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--border)" }}
+            style={{ backgroundColor: "var(--cont-graph-1)" }}
           />
           <div
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-4)" }}
+            style={{ backgroundColor: "var(--cont-graph-2)" }}
           />
           <div
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-3)" }}
+            style={{ backgroundColor: "var(--cont-graph-3)" }}
           />
           <div
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-2)" }}
+            style={{ backgroundColor: "var(--cont-graph-4)" }}
           />
           <div
             className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: "var(--chart-1)" }}
+            style={{ backgroundColor: "var(--cont-graph-5)" }}
           />
         </div>
         <span>More</span>

@@ -245,6 +245,9 @@ const FilterableContent = ({
                         backgroundColor: "var(--card)",
                         borderColor: "var(--border)",
                       }}
+                      itemStyle={{
+                        color: "var(--foreground)",
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -313,6 +316,9 @@ const FilterableContent = ({
                       contentStyle={{
                         backgroundColor: "var(--card)",
                         borderColor: "var(--border)",
+                      }}
+                      itemStyle={{
+                        color: "var(--foreground)",
                       }}
                     />
                   </PieChart>
