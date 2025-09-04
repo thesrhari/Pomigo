@@ -10,6 +10,7 @@ import {
   Trophy,
   Activity,
   UserPlus,
+  EyeOff, // Import new icon
 } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
 
@@ -127,6 +128,19 @@ function EmptyState({ friendCount }: { friendCount: number }) {
   );
 }
 
+// New component for when the user has disabled their feed
+function DisabledState() {
+  return (
+    <div className="text-center py-8 text-muted-foreground">
+      <EyeOff className="w-12 h-12 mx-auto mb-4 opacity-50" />
+      <p className="text-sm font-medium">Activity Feed is Disabled</p>
+      <p className="text-xs mt-1">
+        Enable it in your profile settings to see friend activities.
+      </p>
+    </div>
+  );
+}
+
 function LoadingState() {
   return (
     <div className="space-y-3">
@@ -147,8 +161,34 @@ function LoadingState() {
 }
 
 export const FriendsActivity = () => {
-  const { activities, loading, error } = useActivityFeed();
+  const { activities, loading, error, isDisabled } = useActivityFeed();
   const { friends } = useFriends();
+
+  const renderContent = () => {
+    if (loading) {
+      return <LoadingState />;
+    }
+    if (error) {
+      return (
+        <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-lg">
+          Failed to load activity feed. Please try again.
+        </div>
+      );
+    }
+    if (isDisabled) {
+      return <DisabledState />;
+    }
+    if (activities.length === 0) {
+      return <EmptyState friendCount={friends.length} />;
+    }
+    return (
+      <div className="space-y-3 max-h-96 overflow-y-auto">
+        {activities.map((activity: ActivityItem) => (
+          <ActivityFeedItem key={activity.id} activity={activity} />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <Card className="border-border bg-card h-fit">
@@ -160,27 +200,9 @@ export const FriendsActivity = () => {
       </CardHeader>
 
       <CardContent className="pt-0">
-        {error && (
-          <div className="text-sm text-destructive mb-4 p-3 bg-destructive/10 rounded-lg">
-            Failed to load activity feed. Please try again.
-          </div>
-        )}
+        {renderContent()}
 
-        {loading && <LoadingState />}
-
-        {!loading && !error && activities.length === 0 && (
-          <EmptyState friendCount={friends.length} />
-        )}
-
-        {!loading && !error && activities.length > 0 && (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {activities.map((activity: ActivityItem) => (
-              <ActivityFeedItem key={activity.id} activity={activity} />
-            ))}
-          </div>
-        )}
-
-        {!loading && activities.length > 0 && (
+        {!loading && !isDisabled && activities.length > 0 && (
           <div className="text-center mt-4 pt-3 border-t border-border">
             <p className="text-xs text-muted-foreground">
               Showing recent friend activities
