@@ -1,4 +1,4 @@
-// hooks/use-pomodoro-tracker.ts (Enhanced version)
+// hooks/use-pomodoro-tracker.ts (Corrected and Final Version)
 import { useEffect, useRef } from "react";
 import { createClient } from "../supabase/client";
 import { ActivityFeedService } from "@/lib/activity-feed-service";
@@ -59,11 +59,10 @@ export function usePomodoroTracker({
   currentSubject,
   sessionType,
 }: UsePomodoroTrackerProps) {
-  // Ref to track the previous session type.
   const prevSessionTypeRef = useRef<SessionType>(sessionType);
-  // Ref to track if the timer was running. This helps prevent logging
-  // when the component first loads or on manual resets.
   const wasRunningRef = useRef(timerRunning);
+  // Ref to track the previous timeLeft value to detect skips.
+  const prevTimeLeftRef = useRef(timeLeft);
 
   useEffect(() => {
     const handleSessionCompletion = async (
@@ -103,23 +102,35 @@ export function usePomodoroTracker({
       }
     };
 
-    // --- Core Logic ---
-    // A session is considered complete if the sessionType has changed
-    // since the last render AND the timer was running before this change.
     const sessionTypeChanged = prevSessionTypeRef.current !== sessionType;
     const wasTimerActive = wasRunningRef.current;
 
     if (sessionTypeChanged && wasTimerActive) {
-      // We log the *previous* session type, which is the one that just finished.
-      handleSessionCompletion(prevSessionTypeRef.current);
+      const previousSession = prevSessionTypeRef.current;
+      const wasBreak =
+        previousSession === "short_break" || previousSession === "long_break";
+
+      // A break is skipped if its type changes while its timer had more than a second left.
+      // We check the ref's value, which holds the timeLeft from the *previous* render.
+      const wasSkipped = wasBreak && prevTimeLeftRef.current > 1;
+
+      if (!wasSkipped) {
+        handleSessionCompletion(previousSession);
+      } else {
+        console.log(
+          `SESSION SKIPPED: Not logging ${previousSession} as it was skipped by the user.`
+        );
+      }
     }
 
     // Update refs to store the current state for the next render.
     prevSessionTypeRef.current = sessionType;
     wasRunningRef.current = timerRunning;
+    prevTimeLeftRef.current = timeLeft; // Keep track of the last known time
   }, [
-    sessionType, // The primary dependency that triggers the check
+    sessionType,
     timerRunning,
+    timeLeft, // Add timeLeft as a dependency to update the ref
     currentSubject,
     focusDuration,
     shortBreakDuration,
