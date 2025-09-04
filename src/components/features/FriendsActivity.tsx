@@ -1,9 +1,7 @@
 import React from "react";
 import { useActivityFeed } from "@/lib/hooks/useActivityFeed";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
-  RefreshCw,
   Users,
   Clock,
   BookOpen,
@@ -11,8 +9,9 @@ import {
   Flame,
   Trophy,
   Activity,
-  LucideProps,
+  UserPlus,
 } from "lucide-react";
+import { useFriends } from "@/lib/hooks/useFriends";
 
 // Using a simple time formatting function instead of date-fns
 const formatTimeAgo = (dateString: string): string => {
@@ -104,13 +103,25 @@ function ActivityFeedItem({ activity }: { activity: ActivityItem }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ friendCount }: { friendCount: number }) {
+  if (friendCount === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <UserPlus className="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <p className="text-sm font-medium">Add some friends</p>
+        <p className="text-xs mt-1">
+          Learning is more fun with a little peer pressure.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="text-center py-8 text-muted-foreground">
       <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-      <p className="text-sm">No friend activity yet.</p>
+      <p className="text-sm">No recent friend activity.</p>
       <p className="text-xs mt-1">
-        Add friends to see their study activity here!
+        Your friends are quiet… probably plotting their comeback.
       </p>
     </div>
   );
@@ -136,7 +147,8 @@ function LoadingState() {
 }
 
 export const FriendsActivity = () => {
-  const { activities, loading, error, refreshFeed } = useActivityFeed();
+  const { activities, loading, error } = useActivityFeed();
+  const { friends } = useFriends();
 
   return (
     <Card className="border-border bg-card h-fit">
@@ -145,15 +157,6 @@ export const FriendsActivity = () => {
           <Activity className="w-5 h-5" />
           <span>Friend Activity</span>
         </CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={refreshFeed}
-          disabled={loading}
-          className="h-8 w-8 p-0"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </Button>
       </CardHeader>
 
       <CardContent className="pt-0">
@@ -165,7 +168,9 @@ export const FriendsActivity = () => {
 
         {loading && <LoadingState />}
 
-        {!loading && !error && activities.length === 0 && <EmptyState />}
+        {!loading && !error && activities.length === 0 && (
+          <EmptyState friendCount={friends.length} />
+        )}
 
         {!loading && !error && activities.length > 0 && (
           <div className="space-y-3 max-h-96 overflow-y-auto">

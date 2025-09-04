@@ -1,8 +1,24 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { Timer, Bell } from "lucide-react";
+import { Timer } from "lucide-react";
 import { ThemeToggle } from "../ThemeToggle";
+import { useProfile } from "@/lib/hooks/useProfile";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 export const TopNavBar: React.FC = () => {
+  const { profile, loading } = useProfile();
+
   return (
     <div className="border-b px-6 py-4 sticky top-0 z-40 bg-background/80 backdrop-blur-md">
       <div className="flex items-center justify-between">
@@ -18,14 +34,42 @@ export const TopNavBar: React.FC = () => {
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
-          {/* Notifications */}
-          <Button variant="ghost" size="sm" className="relative">
-            <Bell className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full"></span>
-          </Button>
-
           {/* Theme toggle */}
           <ThemeToggle />
+          {/* Profile Dropdown */}
+          {loading ? (
+            <Skeleton className="h-8 w-8 rounded-full" />
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="cursor-pointer select-none">
+                  <AvatarImage
+                    src={profile?.avatar_url}
+                    alt={profile?.username}
+                  />
+                  <AvatarFallback>
+                    {profile?.display_name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {profile?.display_name}
+                    </p>
+                    <p className="mt-2 text-xs leading-none text-muted-foreground">
+                      @{profile?.username}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">Edit profile</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
     </div>

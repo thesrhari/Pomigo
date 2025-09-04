@@ -8,7 +8,7 @@ import {
 const activityFeedService = new ActivityFeedService();
 
 const fetcher = async () => {
-  return await activityFeedService.getFriendActivityFeed(50);
+  return await activityFeedService.getFriendActivityFeed(20);
 };
 
 export function useActivityFeed() {

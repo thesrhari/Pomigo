@@ -301,7 +301,7 @@ export class ActivityFeedService {
   }
 
   // Fetch activity feed for user's friends
-  async getFriendActivityFeed(limit: number = 50): Promise<ActivityFeedItem[]> {
+  async getFriendActivityFeed(limit: number): Promise<ActivityFeedItem[]> {
     const {
       data: { user },
     } = await supabase.auth.getUser();

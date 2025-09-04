@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  MessageCircle,
   UserX,
   Shield,
   MoreHorizontal,
@@ -77,10 +76,7 @@ export default function FriendCard({
     switch (type) {
       case "friend":
         return (
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" className="border-border">
-              <MessageCircle className="w-4 h-4" />
-            </Button>
+          <div className="">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="border-border">
