@@ -29,6 +29,7 @@ import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 const formatDuration = (minutes: number) => {
   if (typeof minutes !== "number" || isNaN(minutes)) {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
     loading,
     saving,
     updateProfile,
+    updateActivityFeedSetting,
     uploading,
     uploadAvatar,
     stats,
@@ -484,6 +486,37 @@ export default function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Activity Feed Setting Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Settings</CardTitle>
+                <CardDescription>
+                  Control how your profile and activity are seen by others.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label
+                      htmlFor="activity-feed-toggle"
+                      className="text-base font-medium"
+                    >
+                      Activity Feed
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Allow friends to see your study sessions in their feed.
+                    </p>
+                  </div>
+                  <Switch
+                    id="activity-feed-toggle"
+                    checked={profile.activity_feed_enabled}
+                    onCheckedChange={updateActivityFeedSetting}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-destructive">
               <CardHeader>
                 <CardTitle>Danger Zone</CardTitle>

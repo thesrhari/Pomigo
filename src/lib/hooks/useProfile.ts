@@ -11,6 +11,7 @@ export type Profile = {
   display_name: string;
   avatar_url: string;
   bio: string;
+  activity_feed_enabled: boolean;
 };
 
 export type ProfileStats = {
@@ -44,7 +45,9 @@ export function useProfile() {
       if (!user) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, display_name, avatar_url, bio")
+        .select(
+          "username, display_name, avatar_url, bio, activity_feed_enabled"
+        )
         .eq("id", user.id)
         .single();
 
@@ -105,6 +108,37 @@ export function useProfile() {
     return true;
   };
 
+  const updateActivityFeedSetting = async (enabled: boolean) => {
+    if (!user || !profile) return false;
+
+    const previousProfile = profile;
+    // Optimistic update
+    setProfile({ ...profile, activity_feed_enabled: enabled });
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ activity_feed_enabled: enabled })
+      .eq("id", user.id);
+
+    if (error) {
+      // Revert on error
+      setProfile(previousProfile);
+      toast.error("Failed to update activity feed setting", {
+        description: error.message,
+      });
+      return false;
+    }
+
+    // Revalidate SWR data
+    mutate(["profile", user.id]);
+    toast.success(
+      enabled
+        ? "Activity feed enabled. Your friends can now see your study activity!"
+        : "Activity feed disabled. Your study activity is now private."
+    );
+    return true;
+  };
+
   const uploadAvatar = async (file: File) => {
     if (!user) {
       toast.error("Authentication Error", {
@@ -155,6 +189,7 @@ export function useProfile() {
     loading,
     saving,
     updateProfile,
+    updateActivityFeedSetting, // New function for activity feed toggle
     uploading,
     uploadAvatar,
     stats,

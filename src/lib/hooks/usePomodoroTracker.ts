@@ -1,5 +1,7 @@
+// hooks/use-pomodoro-tracker.ts (Enhanced version)
 import { useEffect, useRef } from "react";
 import { createClient } from "../supabase/client";
+import { ActivityFeedService } from "@/lib/activity-feed-service";
 
 type SessionType = "study" | "short_break" | "long_break";
 
@@ -14,6 +16,7 @@ interface UsePomodoroTrackerProps {
 }
 
 const supabase = createClient();
+const activityFeedService = new ActivityFeedService();
 
 async function addCompletedSession(
   userId: string,
@@ -25,18 +28,30 @@ async function addCompletedSession(
     user_id: userId,
     session_type: sessionType,
     duration: duration,
-    subject: sessionType === "study" ? subject : null,
+    subject: sessionType === "study" ? subject || null : null,
+    started_at: new Date().toISOString(),
   };
+
+  // Insert session into database
   const { error } = await supabase.from("sessions").insert([sessionData]);
   if (error) {
     console.error("Error logging session:", error);
     throw error;
   }
+
+  // Process activity feed
+  try {
+    await activityFeedService.processSessionActivity(sessionData);
+  } catch (err) {
+    console.error("Error processing activity feed:", err);
+    // Don't throw here - we don't want to break session logging if activity feed fails
+  }
+
+  return sessionData;
 }
 
 export function usePomodoroTracker({
   timerRunning,
-  // timeLeft is no longer needed for the core logic but is kept for context
   timeLeft,
   focusDuration,
   shortBreakDuration,
@@ -76,6 +91,7 @@ export function usePomodoroTracker({
         console.log(
           `SESSION COMPLETE: Logging ${completedSessionType} of ${sessionDuration} minutes.`
         );
+
         await addCompletedSession(
           user.id,
           completedSessionType,
@@ -87,7 +103,7 @@ export function usePomodoroTracker({
       }
     };
 
-    // --- New Core Logic ---
+    // --- Core Logic ---
     // A session is considered complete if the sessionType has changed
     // since the last render AND the timer was running before this change.
     const sessionTypeChanged = prevSessionTypeRef.current !== sessionType;

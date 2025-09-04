@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { DashboardSkeleton } from "./components/DashboardSkeleton";
 import { StatCard } from "./components/StatCard";
-import { FriendsActivity } from "./components/FriendsActivity";
+import { FriendsActivity } from "../../components/features/FriendsActivity";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 
 const formatDuration = (minutes: number) => {

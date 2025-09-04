@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Activity, UserPlus, Users, Send, Shield } from "lucide-react";
@@ -10,6 +9,7 @@ import type { SearchResult } from "@/types/friends";
 import FriendsPageSkeleton from "./components/FriendsSkeleton";
 import AddFriendModal from "./components/AddFriendModal"; // Adjust path as needed
 import FriendCard from "./components/FriendCard"; // Adjust path as needed
+import { FriendsActivity } from "@/components/features/FriendsActivity";
 
 export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState<
@@ -317,19 +317,7 @@ export default function FriendsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">{renderContent()}</div>
 
-        <Card className="border-border bg-card h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-card-foreground">
-              <Activity className="w-5 h-5" />
-              <span>Friend Activity</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm">
-              Friend activity feed coming soon!
-            </p>
-          </CardContent>
-        </Card>
+        <FriendsActivity />
       </div>
 
       <AddFriendModal
