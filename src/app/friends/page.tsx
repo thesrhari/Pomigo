@@ -10,12 +10,25 @@ import FriendsPageSkeleton from "./components/FriendsSkeleton";
 import AddFriendModal from "./components/AddFriendModal"; // Adjust path as needed
 import FriendCard from "./components/FriendCard"; // Adjust path as needed
 import { FriendsActivity } from "@/components/features/FriendsActivity";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import Alert Dialog components
 
 export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState<
     "friends" | "incoming" | "outgoing" | "blocked"
   >("friends");
   const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+  const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState(false);
+  const [userToBlock, setUserToBlock] = useState<string | null>(null);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   const {
     friends,
@@ -35,6 +48,11 @@ export default function FriendsPage() {
 
   // --- Handler Functions ---
 
+  const closeBlockDialog = () => {
+    setIsBlockConfirmOpen(false);
+    setUserToBlock(null);
+  };
+
   const handleSendRequest = async (username: string) => {
     try {
       const result = await sendFriendRequest(username);
@@ -42,7 +60,7 @@ export default function FriendsPage() {
         toast.success("Friend request sent!");
         setShowAddFriendModal(false);
       } else {
-        toast.error(result.error?.message || "Failed to send friend request.");
+        toast.error("Failed to send friend request.");
       }
     } catch (error) {
       console.error("Error sending friend request:", error);
@@ -56,9 +74,7 @@ export default function FriendsPage() {
       if (result.success) {
         toast.success("Friend request accepted!");
       } else {
-        toast.error(
-          result.error?.message || "Failed to accept friend request."
-        );
+        toast.error("Failed to accept friend request.");
       }
     } catch (error) {
       console.error("Error accepting friend request:", error);
@@ -72,9 +88,7 @@ export default function FriendsPage() {
       if (result.success) {
         toast.info("Friend request declined.");
       } else {
-        toast.error(
-          result.error?.message || "Failed to decline friend request."
-        );
+        toast.error("Failed to decline friend request.");
       }
     } catch (error) {
       console.error("Error declining friend request:", error);
@@ -88,9 +102,7 @@ export default function FriendsPage() {
       if (result.success) {
         toast.info("Friend request cancelled.");
       } else {
-        toast.error(
-          result.error?.message || "Failed to cancel friend request."
-        );
+        toast.error("Failed to cancel friend request.");
       }
     } catch (error) {
       console.error("Error canceling friend request:", error);
@@ -104,7 +116,7 @@ export default function FriendsPage() {
       if (result.success) {
         toast.info("Friend removed.");
       } else {
-        toast.error(result.error?.message || "Failed to remove friend.");
+        toast.error("Failed to remove friend.");
       }
     } catch (error) {
       console.error("Error removing friend:", error);
@@ -112,17 +124,30 @@ export default function FriendsPage() {
     }
   };
 
-  const handleBlockUser = async (userId: string) => {
+  // Updated to show confirmation dialog
+  const handleBlockUser = (userId: string) => {
+    setUserToBlock(userId);
+    setIsBlockConfirmOpen(true);
+  };
+
+  // New handler for the actual block action after confirmation
+  const handleConfirmBlock = async () => {
+    if (!userToBlock) return;
     try {
-      const result = await blockUser(userId);
+      setIsBlocking(true);
+      const result = await blockUser(userToBlock);
       if (result.success) {
-        toast.success("User blocked.");
+        toast.info("User blocked.");
       } else {
-        toast.error(result.error?.message || "Failed to block user.");
+        toast.error("Failed to block user.");
       }
     } catch (error) {
       console.error("Error blocking user:", error);
       toast.error("An unexpected error occurred.");
+    } finally {
+      setIsBlockConfirmOpen(false);
+      setUserToBlock(null);
+      setIsBlocking(false);
     }
   };
 
@@ -132,7 +157,7 @@ export default function FriendsPage() {
       if (result.success) {
         toast.success("User unblocked.");
       } else {
-        toast.error(result.error?.message || "Failed to unblock user.");
+        toast.error("Failed to unblock user.");
       }
     } catch (error) {
       console.error("Error unblocking user:", error);
@@ -209,7 +234,7 @@ export default function FriendsPage() {
               user={friend}
               type="friend"
               onRemove={handleRemoveFriend}
-              onBlock={handleBlockUser}
+              onBlock={handleBlockUser} // This will now open the confirmation dialog
             />
           ))
         ) : (
@@ -327,6 +352,39 @@ export default function FriendsPage() {
         onSendRequest={handleSendRequest}
         getButtonState={getButtonState}
       />
+
+      {/* Block User Confirmation Dialog */}
+      <AlertDialog
+        open={isBlockConfirmOpen}
+        onOpenChange={setIsBlockConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Blocking this user will remove them from your friends list and
+              prevent them from sending you requests. This action can be undone
+              from the blocked users tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              disabled={isBlocking}
+              onClick={closeBlockDialog}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isBlocking}
+              onClick={handleConfirmBlock}
+            >
+              {isBlocking ? "Blocking..." : "Block"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
