@@ -87,10 +87,6 @@ export function usePomodoroTracker({
             break;
         }
 
-        console.log(
-          `SESSION COMPLETE: Logging ${completedSessionType} of ${sessionDuration} minutes.`
-        );
-
         await addCompletedSession(
           user.id,
           completedSessionType,
@@ -116,10 +112,6 @@ export function usePomodoroTracker({
 
       if (!wasSkipped) {
         handleSessionCompletion(previousSession);
-      } else {
-        console.log(
-          `SESSION SKIPPED: Not logging ${previousSession} as it was skipped by the user.`
-        );
       }
     }
 

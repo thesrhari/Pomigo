@@ -28,7 +28,7 @@ import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { Switch } from "@/components/ui/switch";
 
 const formatDuration = (minutes: number) => {
@@ -158,9 +158,7 @@ export default function ProfilePage() {
 
         if (existingUser) {
           setUsernameError("This username is already taken.");
-          toast.error("Username is taken", {
-            description: "Please choose a different username.",
-          });
+          toast.error("Username is taken. Please choose a different username.");
           return;
         }
       }
@@ -172,9 +170,7 @@ export default function ProfilePage() {
         bio: profile.bio.trim(),
       });
     } catch (error) {
-      toast.error("Failed to update profile", {
-        description: "An unexpected error occurred. Please try again.",
-      });
+      toast.error("Failed to update profile.");
       console.error("Error updating profile:", error);
     }
   };

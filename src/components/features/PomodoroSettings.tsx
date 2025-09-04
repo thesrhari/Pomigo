@@ -14,6 +14,7 @@ import { Switch } from "../ui/switch";
 import { Input } from "../ui/input";
 import { Minus, Plus } from "lucide-react";
 import { SoundSelector } from "@/components/features/SoundSelector";
+import { toast } from "react-toastify";
 
 // The settings type is expanded to include sound options
 interface PomodoroSettingsType {
@@ -167,9 +168,10 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
     try {
       await updateSettings(localSettings);
       onClose();
+      toast.success("Settings saved successfully.");
     } catch (err) {
       console.error("Error saving settings:", err);
-      alert("Failed to save settings. Please try again.");
+      toast.error("Failed to save settings. Please try again.");
     } finally {
       setIsLoading(false);
     }

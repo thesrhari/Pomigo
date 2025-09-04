@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Edit3, Trash2, Palette } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { PostgrestError } from "@supabase/supabase-js";
 
 const supabase = createClient();
@@ -99,6 +99,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
       await addSubjectProp(newSubject.name, newSubject.color);
       setNewSubject({ name: "", color: "#3B82F6" });
       setIsOpen(false);
+      toast.success(`${newSubject.name} successfully added.`);
     } catch (err) {
       const error = err as PostgrestError;
       if (error.code === "23505") {
@@ -117,9 +118,10 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     try {
       await updateSubjects(subject);
       setEditingSubject(null);
+      toast.success("Subject updated successfully.");
     } catch (err) {
       console.error("Error editing subject:", err);
-      alert("Failed to update subject. Please try again.");
+      toast.error("Failed to update subject. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -139,9 +141,10 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
         window.location.reload();
       }
       setDeletingSubject(null);
+      toast.success("Subject deleted successfully.");
     } catch (err) {
       console.error("Error deleting subject:", err);
-      alert("Failed to delete subject. Please try again.");
+      toast.error("Failed to delete subject. Please try again.");
     } finally {
       setIsLoading(false);
     }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
 import useSWR, { useSWRConfig } from "swr";
 
@@ -52,7 +52,7 @@ export function useProfile() {
         .single();
 
       if (error) {
-        toast.error("Error fetching profile", { description: error.message });
+        toast.error("Error fetching profile. Please try again.");
         throw error;
       }
       return data;
@@ -95,7 +95,7 @@ export function useProfile() {
       if (error.code === "23505") {
         toast.error("This username is already taken.");
       } else {
-        toast.error("Error updating profile", { description: error.message });
+        toast.error("Error updating profile. Please try again later.");
       }
       setSaving(false);
       return false;
@@ -123,9 +123,9 @@ export function useProfile() {
     if (error) {
       // Revert on error
       setProfile(previousProfile);
-      toast.error("Failed to update activity feed setting", {
-        description: error.message,
-      });
+      toast.error(
+        "Failed to update activity feed setting. Please try again later."
+      );
       return false;
     }
 
@@ -141,9 +141,7 @@ export function useProfile() {
 
   const uploadAvatar = async (file: File) => {
     if (!user) {
-      toast.error("Authentication Error", {
-        description: "You are not logged in.",
-      });
+      toast.error("Authentication Error. You are not logged in.");
       return;
     }
     // ... file validation logic ...
@@ -176,7 +174,7 @@ export function useProfile() {
         throw new Error("Failed to get public URL for uploaded file");
       }
     } catch (error: any) {
-      toast.error("Avatar Upload Failed", { description: error.message });
+      toast.error("Avatar Upload Failed. Please try again later.");
     } finally {
       setUploading(false);
     }

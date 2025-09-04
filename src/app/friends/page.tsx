@@ -2,8 +2,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Activity, UserPlus, Users, Send, Shield } from "lucide-react";
+import { toast } from "react-toastify";
+import { UserPlus, Users, Send, Shield } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
 import type { SearchResult } from "@/types/friends";
 import FriendsPageSkeleton from "./components/FriendsSkeleton";

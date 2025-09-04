@@ -3,7 +3,7 @@ import React from "react";
 import { TopNavBar } from "./TopNavBar";
 import { Sidebar } from "./Sidebar";
 import { usePathname } from "next/navigation";
-import { Toaster } from "sonner";
+import { Bounce, ToastContainer } from "react-toastify";
 
 interface NavBarProviderProps {
   children: React.ReactNode;
@@ -29,7 +29,19 @@ export default function NavBarProvider({ children }: NavBarProviderProps) {
           <div className="flex-1 lg:ml-64 overflow-auto">
             <div className="p-6 lg:p-8">{children}</div>
           </div>
-          <Toaster />
+          <ToastContainer
+            position="bottom-right"
+            autoClose={5000}
+            hideProgressBar
+            newestOnTop={false}
+            closeOnClick={false}
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="colored"
+            transition={Bounce}
+          />
         </div>
       </div>
     </div>
