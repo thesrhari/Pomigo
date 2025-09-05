@@ -95,7 +95,7 @@ export default function AddFriendModal({
             <Button
               onClick={handleSearch}
               disabled={isSearching || !searchUsername.trim()}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/80 cursor-pointer"
             >
               {isSearching ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -148,6 +148,7 @@ export default function AddFriendModal({
                     </div>
                     <Button
                       size="sm"
+                      className="cursor-pointer hover:bg-primary/80"
                       variant={buttonState.variant}
                       onClick={() => {
                         if (buttonState.text === "Add") {

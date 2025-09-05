@@ -78,7 +78,11 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-            <Button size="lg" onClick={() => router.push("/pomodoro")}>
+            <Button
+              size="lg"
+              className="cursor-pointer"
+              onClick={() => router.push("/pomodoro")}
+            >
               <Play className="w-5 h-5 mr-2" />
               Start Pomodoro
             </Button>

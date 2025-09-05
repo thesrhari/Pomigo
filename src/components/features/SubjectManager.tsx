@@ -154,7 +154,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2 cursor-pointer">
             <Plus className="w-4 h-4" />
           </Button>
         </DialogTrigger>
@@ -195,6 +195,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       placeholder="e.g., Mathematics, Physics, History..."
                       className="h-11 text-base"
                       disabled={isLoading}
+                      onKeyDown={(e) => e.key === "Enter" && addSubject()}
                     />
                   </div>
                   <div className="space-y-4">
@@ -252,7 +253,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   </div>
                   <Button
                     onClick={addSubject}
-                    className="w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="cursor-pointer w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
                     disabled={!newSubject.name.trim() || isLoading}
                   >
                     {isLoading ? (
@@ -294,51 +295,57 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   </div>
                 ) : (
                   <div className="h-full overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                    {subjects.map((subject) => (
-                      <div
-                        key={subject.id}
-                        className="group bg-card/60 backdrop-blur-sm border border-border rounded-xl p-4 transition-all duration-200 hover:bg-card hover:shadow-lg hover:border-border/80"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div
-                              className="w-12 h-12 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105 border-2 border-background/20 flex-shrink-0"
-                              style={{ backgroundColor: subject.color }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-sm mb-1 truncate">
-                                {subject.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatDuration(subject.totalHours)} studied
+                    {[...subjects]
+                      .sort((a, b) => {
+                        if (a.name === "Uncategorized") return -1;
+                        if (b.name === "Uncategorized") return 1;
+                        return 0;
+                      })
+                      .map((subject) => (
+                        <div
+                          key={subject.id}
+                          className="group bg-card/60 backdrop-blur-sm border border-border rounded-xl p-4 transition-all duration-200 hover:bg-card hover:shadow-lg hover:border-border/80"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div
+                                className="w-12 h-12 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105 border-2 border-background/20 flex-shrink-0"
+                                style={{ backgroundColor: subject.color }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-sm mb-1 truncate">
+                                  {subject.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatDuration(subject.totalHours)} studied
+                                </div>
                               </div>
                             </div>
+                            {subject.name !== "Uncategorized" && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="cursor-pointer h-8 w-8 hover:bg-accent hover:text-accent-foreground"
+                                  onClick={() => setEditingSubject(subject)}
+                                  disabled={isLoading}
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="cursor-pointer h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setDeletingSubject(subject)}
+                                  disabled={isLoading}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                          {subject.name !== "Uncategorized" && (
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 hover:bg-accent hover:text-accent-foreground"
-                                onClick={() => setEditingSubject(subject)}
-                                disabled={isLoading}
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setDeletingSubject(subject)}
-                                disabled={isLoading}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
@@ -392,6 +399,9 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   }
                   className="h-11"
                   disabled={isLoading}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && editSubject(editingSubject)
+                  }
                 />
               </div>
               <div className="space-y-4">

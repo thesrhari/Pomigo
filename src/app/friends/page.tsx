@@ -12,8 +12,6 @@ import FriendCard from "./components/FriendCard"; // Adjust path as needed
 import { FriendsActivity } from "@/components/features/FriendsActivity";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -205,10 +203,10 @@ export default function FriendsPage() {
   }) => (
     <button
       onClick={() => setActiveTab(tab)}
-      className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+      className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
         activeTab === tab
           ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          : "text-muted-foreground hover:text-foreground hover:bg-foreground/10"
       }`}
     >
       {label}
@@ -312,7 +310,7 @@ export default function FriendsPage() {
         </div>
         <Button
           onClick={() => setShowAddFriendModal(true)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+          className="bg-primary text-primary-foreground hover:bg-primary/80 shadow-sm cursor-pointer"
         >
           <UserPlus className="w-4 h-4 mr-2" />
           Add Friends

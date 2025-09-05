@@ -177,15 +177,15 @@ export default function MinimalLeaderboard() {
         <div className="bg-card/80 border border-border rounded-lg p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <div className="flex rounded-md bg-muted/50 p-1">
+              <div className="flex rounded-md bg-muted/50 p-1 gap-1">
                 {timePeriods.map((period) => (
                   <button
                     key={period.value}
                     onClick={() => setTimePeriod(period.value)}
-                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                       timePeriod === period.value
                         ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-foreground/10"
                     }`}
                   >
                     {period.icon}
@@ -195,15 +195,15 @@ export default function MinimalLeaderboard() {
               </div>
             </div>
             <div className="flex-1">
-              <div className="flex rounded-md bg-muted/50 p-1">
+              <div className="flex rounded-md bg-muted/50 p-1 gap-1">
                 {metricTypes.map((metric) => (
                   <button
                     key={metric.value}
                     onClick={() => setMetricType(metric.value)}
-                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                       metricType === metric.value
                         ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-foreground/10"
                     }`}
                   >
                     {metric.icon}

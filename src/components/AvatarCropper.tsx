@@ -322,7 +322,9 @@ export default function AvatarCropper({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Apply</Button>
+          <Button className="cursor-pointer" onClick={handleSave}>
+            Apply
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

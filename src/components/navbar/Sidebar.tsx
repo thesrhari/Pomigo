@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const sidebarItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, path: "/dashboard" },
-  { id: "pomodoro", label: "Pomodoro", icon: Timer, path: "/pomodoro" },
+  { id: "study", label: "Study", icon: Timer, path: "/study" },
   { id: "analytics", label: "Analytics", icon: BarChart3, path: "/analytics" },
   { id: "friends", label: "Friends", icon: Users, path: "/friends" },
   {

@@ -119,7 +119,7 @@ export default function FriendCard({
                 handleAction("accept", () => onAccept?.(user.relationship_id))
               }
               disabled={!!loadingAction}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
             >
               {loadingAction === "accept" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -137,7 +137,7 @@ export default function FriendCard({
                 handleAction("reject", () => onReject?.(user.relationship_id))
               }
               disabled={!!loadingAction}
-              className="border-border"
+              className="border-border cursor-pointer"
             >
               {loadingAction === "reject" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -161,7 +161,7 @@ export default function FriendCard({
                 handleAction("cancel", () => onCancel?.(user.relationship_id))
               }
               disabled={!!loadingAction}
-              className="border-border text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              className="border-border text-destructive hover:bg-destructive hover:text-destructive-foreground cursor-pointer"
             >
               {loadingAction === "cancel" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -180,7 +180,7 @@ export default function FriendCard({
               handleAction("unblock", () => onUnblock?.(user.relationship_id))
             }
             disabled={!!loadingAction}
-            className="border-border"
+            className="border-border cursor-pointer"
           >
             {loadingAction === "unblock" ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />

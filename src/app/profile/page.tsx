@@ -321,6 +321,7 @@ export default function ProfilePage() {
               variant="destructive"
               onClick={handleDeleteAccount}
               disabled={!isDeleteConfirmationValid || isDeleting}
+              className="cursor-pointer"
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isDeleting ? "Deleting..." : "Delete Account"}
@@ -369,6 +370,7 @@ export default function ProfilePage() {
                       variant="outline"
                       onClick={() => avatarInputRef.current?.click()}
                       disabled={uploading}
+                      className="cursor-pointer"
                     >
                       {uploading && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -434,6 +436,7 @@ export default function ProfilePage() {
                 <Button
                   onClick={handleSaveChanges}
                   disabled={saving || uploading}
+                  className="cursor-pointer"
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {saving ? "Saving..." : "Save Changes"}
@@ -506,6 +509,7 @@ export default function ProfilePage() {
                   </div>
                   <Switch
                     id="activity-feed-toggle"
+                    className="cursor-pointer"
                     checked={profile.activity_feed_enabled}
                     onCheckedChange={updateActivityFeedSetting}
                   />
@@ -523,7 +527,7 @@ export default function ProfilePage() {
               <CardContent>
                 <Button
                   variant="destructive"
-                  className="w-full"
+                  className="w-full cursor-pointer"
                   onClick={openDeleteDialog}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
