@@ -43,12 +43,11 @@ import {
 import { StatCard } from "./components/StatCard";
 import { PersonaCard } from "./components/PersonaCard";
 import { PlaceholderCard } from "./components/PlaceholderCard";
-import { ContributionGraph } from "./components/ContributionGraph";
+import { ContributionGraph } from "./components/ContributionGraph"; // Ensure this uses the new component
 import { FunStatsData } from "@/lib/hooks/useAnalyticsData";
 import { AnalyticsPageSkeleton } from "./components/AnalyticsPageSkeleton";
 
-// ... (rest of the helper functions: formatMinutes, formatHour)
-
+// --- HELPER FUNCTIONS (Unchanged) ---
 const formatMinutes = (minutes: number) => {
   if (minutes < 1) return "0m";
   const hours = Math.floor(minutes / 60);
@@ -65,6 +64,7 @@ const formatHour = (hour: number) => {
   return `${h}${ampm}`;
 };
 
+// --- MAIN PAGE COMPONENT (Updated Layout) ---
 export default function AnalyticsPage() {
   const [dateFilter, setDateFilter] = useState<TimeFilter>("week");
   const [contributionYear, setContributionYear] = useState<number>(
@@ -75,7 +75,6 @@ export default function AnalyticsPage() {
     contributionYear
   );
 
-  // --- MODIFIED LOADING STATE ---
   if (loading) {
     return <AnalyticsPageSkeleton />;
   }
@@ -102,53 +101,56 @@ export default function AnalyticsPage() {
     : null;
 
   return (
-    <div className="space-y-8 p-4">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">
-            Your study habits, visualized.
-          </p>
-        </div>
+    <div className="space-y-8 p-4 md:p-6 lg:p-8">
+      {/* --- PAGE HEADER --- */}
+      <div>
+        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+        <p className="text-muted-foreground">Your study habits, visualized.</p>
       </div>
 
-      {/* --- FILTERABLE SECTION --- */}
+      {/* --- FILTERABLE STATS SECTION --- */}
       <Card>
-        <div className="flex justify-end items-center space-x-2 px-8">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select
-            value={dateFilter}
-            onValueChange={(value) => setDateFilter(value as TimeFilter)}
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="all-time">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <CardContent className=" space-y-6">
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Period Overview</CardTitle>
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <Select
+              value={dateFilter}
+              onValueChange={(value) => setDateFilter(value as TimeFilter)}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="all-time">All Time</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
           <FilterableContent data={data} />
         </CardContent>
       </Card>
 
-      {/* --- INSIGHTS & ACTIVITY SECTION --- */}
+      {/* --- FULL-WIDTH CONTRIBUTION SECTION (Key Change) --- */}
+      {/* This section is now a direct child of the main layout container, allowing it to be full-width. */}
+      <ContributionSection
+        contributionData={data.contributionData}
+        totalContributionTimeForYear={data.totalContributionTimeForYear}
+        contributionYear={contributionYear}
+        setContributionYear={setContributionYear}
+        availableYears={availableYears}
+      />
+
+      {/* --- INSIGHTS & STREAKS SECTION (New Grid Layout) --- */}
+      {/* This new grid organizes the remaining cards below the contribution graph. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <ContributionSection
-            contributionData={data.contributionData}
-            totalContributionTimeForYear={data.totalContributionTimeForYear}
-            contributionYear={contributionYear}
-            setContributionYear={setContributionYear}
-            availableYears={availableYears}
-          />
           <FunStatsSection funStats={funStats} />
         </div>
-
         <div className="space-y-6">
           <StreakSection
             currentStreak={data.currentStreak}
@@ -169,12 +171,14 @@ export default function AnalyticsPage() {
   );
 }
 
-// ... (All sub-components like FilterableContent, FunStatsSection, etc., remain unchanged)
+// --- SUB-COMPONENTS (Mostly Unchanged, but with a key tweak in ContributionSection) ---
+
 const FilterableContent = ({
   data,
 }: {
   data: NonNullable<ReturnType<typeof useAnalyticsData>["data"]>;
 }) => {
+  // ... (This component's code remains exactly the same)
   const {
     totalStudyTime,
     totalStudySessions,
@@ -330,6 +334,7 @@ const FilterableContent = ({
 };
 
 const FunStatsSection = ({ funStats }: { funStats: FunStatsData | null }) => {
+  // ... (This component's code remains exactly the same)
   if (!funStats) {
     return (
       <PlaceholderCard
@@ -427,6 +432,7 @@ const StreakSection = ({
   currentStreak: number;
   bestStreak: number;
 }) => (
+  // ... (This component's code remains exactly the same)
   <Card>
     <CardHeader>
       <CardTitle>Streaks</CardTitle>
@@ -448,6 +454,7 @@ const StreakSection = ({
   </Card>
 );
 
+// --- ContributionSection (Updated Padding) ---
 const ContributionSection = (props: any) => (
   <Card>
     <CardHeader className="flex flex-row items-start justify-between">
@@ -476,7 +483,8 @@ const ContributionSection = (props: any) => (
         </Select>
       )}
     </CardHeader>
-    <CardContent>
+    {/* **** KEY CHANGE HERE **** */}
+    <CardContent className="px-4 sm:px-6 pb-6 pt-0">
       <ContributionGraph
         data={props.contributionData}
         year={props.contributionYear}

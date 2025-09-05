@@ -81,13 +81,20 @@ export interface AnalyticsData {
   bestStreak: number;
 
   // Contribution Data (Yearly)
-  contributionData: { date: string; count: number }[];
+  contributionData: DailyContribution[];
   totalContributionTimeForYear: number;
 
   // Insightful Stats (All-Time)
   productiveHours: ProductiveHours | null;
   funStats: FunStatsData | null;
 }
+
+export type DailyContribution = {
+  date: string;
+  totalStudyTime: number;
+  sessionCount: number;
+  subjects: Record<string, number>;
+};
 
 // --- FETCHER FUNCTION FOR SWR ---
 
@@ -333,21 +340,50 @@ function getContributionDataForYear(
   sessions: FullStudySession[],
   year: number
 ) {
-  const contributions: { [key: string]: number } = {};
+  // Use a more detailed accumulator object
+  const contributions: {
+    [key: string]: {
+      totalStudyTime: number;
+      sessionCount: number;
+      subjects: { [key: string]: number };
+    };
+  } = {};
   let totalContributionTimeForYear = 0;
 
   sessions.forEach((session) => {
     const sessionDate = new Date(session.started_at);
     if (getYear(sessionDate) === year) {
       const date = format(sessionDate, "yyyy-MM-dd");
-      contributions[date] = (contributions[date] || 0) + session.duration;
+
+      // Initialize the day's record if it doesn't exist
+      if (!contributions[date]) {
+        contributions[date] = {
+          totalStudyTime: 0,
+          sessionCount: 0,
+          subjects: {},
+        };
+      }
+
+      // Aggregate data
+      contributions[date].totalStudyTime += session.duration;
+      contributions[date].sessionCount += 1;
+
+      const subject = session.subject || "Uncategorized";
+      contributions[date].subjects[subject] =
+        (contributions[date].subjects[subject] || 0) + session.duration;
+
       totalContributionTimeForYear += session.duration;
     }
   });
 
-  const contributionData = Object.entries(contributions).map(
-    ([date, count]) => ({ date, count })
-  );
+  // Transform the map into the final array structure
+  const contributionData: DailyContribution[] = Object.entries(
+    contributions
+  ).map(([date, data]) => ({
+    date,
+    ...data,
+  }));
+
   return { contributionData, totalContributionTimeForYear };
 }
 
