@@ -18,7 +18,7 @@ import {
   Award,
   PieChart as PieChartIcon,
 } from "lucide-react";
-import { formatMinutes } from "@/lib/utils/formatMinutes";
+import { formatMinutes } from "@/utils/client/formatMinutes";
 
 // Define a more specific type for your data if possible
 interface FilterableContentProps {

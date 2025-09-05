@@ -10,7 +10,7 @@ import {
 import { PlaceholderCard } from "../components/PlaceholderCard";
 import { FunStatsData } from "@/lib/hooks/useAnalyticsData";
 import { Zap, CalendarCheck, BookOpenCheck, Trophy } from "lucide-react";
-import { formatMinutes } from "@/lib/utils/formatMinutes";
+import { formatMinutes } from "@/utils/client/formatMinutes";
 
 const formatHour = (hour: number) => {
   const h = hour % 12 === 0 ? 12 : hour % 12;

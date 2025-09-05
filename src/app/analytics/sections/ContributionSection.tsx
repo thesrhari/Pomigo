@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ContributionGraph } from "../components/ContributionGraph";
-import { formatMinutes } from "@/lib/utils/formatMinutes";
+import { formatMinutes } from "@/utils/client/formatMinutes";
 
 interface ContributionSectionProps {
   contributionData: any; // Define a more specific type

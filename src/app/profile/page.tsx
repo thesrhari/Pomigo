@@ -79,7 +79,7 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (file) {
       const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      const maxSize = 10 * 1024; // 1MB
 
       if (!allowedTypes.includes(file.type)) {
         toast.error(
@@ -89,7 +89,7 @@ export default function ProfilePage() {
       }
 
       if (file.size > maxSize) {
-        toast.error("File size exceeds the 10MB limit.");
+        toast.error("File size exceeds the 1MB limit.");
         return;
       }
 
@@ -378,7 +378,7 @@ export default function ProfilePage() {
                       {uploading ? "Uploading..." : "Change Avatar"}
                     </Button>
                     <p className="text-sm text-muted-foreground">
-                      JPG, PNG, or WEBP. Max 10MB.
+                      JPG, PNG, or WEBP. Max 1MB.
                     </p>
                   </div>
                 </div>
