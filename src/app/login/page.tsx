@@ -1,16 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 
 export default function AuthPage() {
   const handleGoogleAuth = async () => {
     "use server";
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const { data } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "http://localhost:3000/api/auth/callback?next=/dashboard",
+        redirectTo: "http://localhost:3000/auth/callback?next=/dashboard",
       },
     });
     return redirect(data.url!);

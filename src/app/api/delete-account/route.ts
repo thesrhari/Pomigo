@@ -1,10 +1,12 @@
-import { createClient } from "@/lib/supabase/server"; // <-- Use the new server client
+import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(request: NextRequest) {
   // Create a Supabase client that can read the user's session from the cookies
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
 
   try {
     // Check if there is a user session
