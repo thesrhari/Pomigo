@@ -1,70 +1,21 @@
 "use client";
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAnalyticsData, TimeFilter } from "@/lib/hooks/useAnalyticsData";
-import {
-  Filter,
-  Timer,
-  Target,
-  Flame,
-  Award,
-  Coffee,
-  Brain,
-  PieChart as PieChartIcon,
-  Moon,
-  Sun,
-  CalendarCheck,
-  BookOpenCheck,
-  Trophy,
-  Zap,
-  Clock,
-} from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
-
-import { StatCard } from "./components/StatCard";
-import { PersonaCard } from "./components/PersonaCard";
-import { PlaceholderCard } from "./components/PlaceholderCard";
-import { ContributionGraph } from "./components/ContributionGraph"; // Ensure this uses the new component
-import { FunStatsData } from "@/lib/hooks/useAnalyticsData";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalyticsPageSkeleton } from "./components/AnalyticsPageSkeleton";
+import { OverviewTab } from "./tabs/OverviewTab";
+import { ActivityTab } from "./tabs/ActivityTab";
+import { InsightsTab } from "./tabs/InsightsTab";
+import { Sun, Moon } from "lucide-react";
 
 // --- HELPER FUNCTIONS (Unchanged) ---
-const formatMinutes = (minutes: number) => {
-  if (minutes < 1) return "0m";
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = Math.round(minutes % 60);
-  if (hours > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-  return `${remainingMinutes}m`;
-};
-
-const formatHour = (hour: number) => {
+export const formatHour = (hour: number) => {
   const h = hour % 12 === 0 ? 12 : hour % 12;
   const ampm = hour < 12 ? "am" : "pm";
   return `${h}${ampm}`;
 };
 
-// --- MAIN PAGE COMPONENT (Updated Layout) ---
+// --- MAIN PAGE COMPONENT ---
 export default function AnalyticsPage() {
   const [dateFilter, setDateFilter] = useState<TimeFilter>("week");
   const [contributionYear, setContributionYear] = useState<number>(
@@ -88,7 +39,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const { productiveHours, funStats } = data;
+  const { productiveHours } = data;
 
   const personaContent = productiveHours
     ? {
@@ -101,394 +52,46 @@ export default function AnalyticsPage() {
     : null;
 
   return (
-    <div className="space-y-8 p-4 md:p-6 lg:p-8">
-      {/* --- PAGE HEADER --- */}
+    <div className="space-y-8 p-4">
       <div>
         <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
         <p className="text-muted-foreground">Your study habits, visualized.</p>
       </div>
 
-      {/* --- FILTERABLE STATS SECTION --- */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Period Overview</CardTitle>
-          <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <Select
-              value={dateFilter}
-              onValueChange={(value) => setDateFilter(value as TimeFilter)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="all-time">All Time</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <FilterableContent data={data} />
-        </CardContent>
-      </Card>
-
-      {/* --- FULL-WIDTH CONTRIBUTION SECTION (Key Change) --- */}
-      {/* This section is now a direct child of the main layout container, allowing it to be full-width. */}
-      <ContributionSection
-        contributionData={data.contributionData}
-        totalContributionTimeForYear={data.totalContributionTimeForYear}
-        contributionYear={contributionYear}
-        setContributionYear={setContributionYear}
-        availableYears={availableYears}
-      />
-
-      {/* --- INSIGHTS & STREAKS SECTION (New Grid Layout) --- */}
-      {/* This new grid organizes the remaining cards below the contribution graph. */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <FunStatsSection funStats={funStats} />
-        </div>
-        <div className="space-y-6">
-          <StreakSection
+      <Tabs defaultValue="overview">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview" className="tabstrigger">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="tabstrigger">
+            Activity
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="tabstrigger">
+            Insights
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <OverviewTab
+            data={data}
+            dateFilter={dateFilter}
+            setDateFilter={setDateFilter}
+          />
+        </TabsContent>
+        <TabsContent value="activity">
+          <ActivityTab
+            contributionData={data.contributionData}
+            totalContributionTimeForYear={data.totalContributionTimeForYear}
+            contributionYear={contributionYear}
+            setContributionYear={setContributionYear}
+            availableYears={availableYears}
             currentStreak={data.currentStreak}
             bestStreak={data.bestStreak}
           />
-          {personaContent ? (
-            <PersonaCard
-              title={personaContent.title}
-              description={personaContent.description}
-              icon={personaContent.icon}
-            />
-          ) : (
-            <PlaceholderCard message="Study more to unlock your productivity persona!" />
-          )}
-        </div>
-      </div>
+        </TabsContent>
+        <TabsContent value="insights">
+          <InsightsTab funStats={data.funStats} persona={personaContent} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
-// --- SUB-COMPONENTS (Mostly Unchanged, but with a key tweak in ContributionSection) ---
-
-const FilterableContent = ({
-  data,
-}: {
-  data: NonNullable<ReturnType<typeof useAnalyticsData>["data"]>;
-}) => {
-  // ... (This component's code remains exactly the same)
-  const {
-    totalStudyTime,
-    totalStudySessions,
-    averageSessionLength,
-    totalTimePerSubject,
-    totalBreakTime,
-    totalShortBreakTime,
-    totalLongBreakTime,
-  } = data;
-
-  return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard
-          title="Total Study Time"
-          value={formatMinutes(totalStudyTime)}
-          icon={Brain}
-          color="--primary"
-        />
-        <StatCard
-          title="Focus Sessions"
-          value={totalStudySessions.toString()}
-          icon={Target}
-          color="--chart-2"
-        />
-        <StatCard
-          title="Avg. Session Length"
-          value={formatMinutes(averageSessionLength)}
-          icon={Clock}
-          color="--chart-4"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Subject Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 w-full">
-              {totalTimePerSubject.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={totalTimePerSubject}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="80%"
-                      paddingAngle={5}
-                      dataKey="value"
-                      nameKey="name"
-                    >
-                      {totalTimePerSubject.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => formatMinutes(value)}
-                      contentStyle={{
-                        backgroundColor: "var(--card)",
-                        borderColor: "var(--border)",
-                      }}
-                      itemStyle={{
-                        color: "var(--foreground)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No study data for this period.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col justify-between h-full pt-4">
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Timer className="w-4 h-4 mr-2" /> Total Break Time
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalBreakTime)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Coffee className="w-4 h-4 mr-2" /> Short Breaks
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalShortBreakTime)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Award className="w-4 h-4 mr-2" /> Long Breaks
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalLongBreakTime)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                <PieChartIcon className="w-4 h-4 mr-2" /> Study vs. Break Ratio
-              </div>
-              {totalStudyTime + totalBreakTime > 0 ? (
-                <ResponsiveContainer width="100%" height={120}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Study", value: totalStudyTime },
-                        { name: "Break", value: totalBreakTime },
-                      ]}
-                      dataKey="value"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={50}
-                    >
-                      <Cell fill="var(--primary)" />
-                      <Cell fill="var(--secondary)" />
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => formatMinutes(value)}
-                      contentStyle={{
-                        backgroundColor: "var(--card)",
-                        borderColor: "var(--border)",
-                      }}
-                      itemStyle={{
-                        color: "var(--foreground)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[120px] text-xs text-muted-foreground">
-                  No activity to display.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </>
-  );
-};
-
-const FunStatsSection = ({ funStats }: { funStats: FunStatsData | null }) => {
-  // ... (This component's code remains exactly the same)
-  if (!funStats) {
-    return (
-      <PlaceholderCard
-        title="Insights Locked"
-        message="More study data is needed to reveal your habits."
-      />
-    );
-  }
-
-  const { powerHour, mostProductiveDay, subjectDeepDive } = funStats;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Deeper Insights</CardTitle>
-        <CardDescription>
-          All-time stats about your unique study patterns.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div className="p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center font-semibold mb-2">
-            <Zap className="w-5 h-5 mr-2 text-yellow-500" /> Power Hour
-          </div>
-          {powerHour ? (
-            <p>
-              Your most focused hour is around{" "}
-              <span className="font-bold">{formatHour(powerHour.hour)}</span>,
-              where you&apos;ve studied a total of{" "}
-              {formatMinutes(powerHour.totalTime)}.
-            </p>
-          ) : (
-            <p>Not enough data yet.</p>
-          )}
-        </div>
-        <div className="p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center font-semibold mb-2">
-            <CalendarCheck className="w-5 h-5 mr-2 text-blue-500" /> Most
-            Productive Day
-          </div>
-          {mostProductiveDay ? (
-            <p>
-              You get the most done on{" "}
-              <span className="font-bold">{mostProductiveDay.day}s</span>, with
-              a total of {formatMinutes(mostProductiveDay.totalTime)} studied.
-            </p>
-          ) : (
-            <p>Not enough data yet.</p>
-          )}
-        </div>
-        <div className="p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center font-semibold mb-2">
-            <BookOpenCheck className="w-5 h-5 mr-2 text-green-500" /> Go-To
-            Subject
-          </div>
-          {subjectDeepDive?.goToSubject ? (
-            <p>
-              You&apos;ve started a session on{" "}
-              <span className="font-bold">
-                {subjectDeepDive.goToSubject.name}
-              </span>{" "}
-              more than any other subject ({subjectDeepDive.goToSubject.count}{" "}
-              times).
-            </p>
-          ) : (
-            <p>Not enough data yet.</p>
-          )}
-        </div>
-        <div className="p-4 bg-muted/50 rounded-lg">
-          <div className="flex items-center font-semibold mb-2">
-            <Trophy className="w-5 h-5 mr-2 text-amber-600" /> Endurance Subject
-          </div>
-          {subjectDeepDive?.enduranceSubject ? (
-            <p>
-              Your longest average sessions are in{" "}
-              <span className="font-bold">
-                {subjectDeepDive.enduranceSubject.name}
-              </span>{" "}
-              at {formatMinutes(subjectDeepDive.enduranceSubject.avgLength)} per
-              session.
-            </p>
-          ) : (
-            <p>Not enough data yet.</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-const StreakSection = ({
-  currentStreak,
-  bestStreak,
-}: {
-  currentStreak: number;
-  bestStreak: number;
-}) => (
-  // ... (This component's code remains exactly the same)
-  <Card>
-    <CardHeader>
-      <CardTitle>Streaks</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="flex justify-between items-center text-sm">
-        <span className="text-muted-foreground flex items-center">
-          <Flame className="w-4 h-4 mr-2 text-orange-500" /> Current Streak
-        </span>
-        <span className="font-medium">{currentStreak} days</span>
-      </div>
-      <div className="flex justify-between items-center text-sm">
-        <span className="text-muted-foreground flex items-center">
-          <Award className="w-4 h-4 mr-2 text-yellow-500" /> Best Streak
-        </span>
-        <span className="font-medium">{bestStreak} days</span>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-// --- ContributionSection (Updated Padding) ---
-const ContributionSection = (props: any) => (
-  <Card>
-    <CardHeader className="flex flex-row items-start justify-between">
-      <div>
-        <CardTitle>Your Study Activity</CardTitle>
-        <p className="text-sm text-muted-foreground pt-1">
-          {formatMinutes(props.totalContributionTimeForYear)} studied in{" "}
-          {props.contributionYear}
-        </p>
-      </div>
-      {props.availableYears.length > 0 && (
-        <Select
-          value={props.contributionYear.toString()}
-          onValueChange={(value) => props.setContributionYear(parseInt(value))}
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {props.availableYears.map((year: number) => (
-              <SelectItem key={year} value={year.toString()}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    </CardHeader>
-    {/* **** KEY CHANGE HERE **** */}
-    <CardContent className="px-4 sm:px-6 pb-6 pt-0">
-      <ContributionGraph
-        data={props.contributionData}
-        year={props.contributionYear}
-      />
-    </CardContent>
-  </Card>
-);
