@@ -175,6 +175,27 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCheckout = async () => {
+    if (!user || !profile) return;
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        // Handle cases where the checkout URL is not returned
+        console.error("Failed to create checkout session");
+      }
+    } catch (error) {
+      console.error("An error occurred during checkout:", error);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!user || !profile) return;
 
@@ -455,8 +476,11 @@ export default function ProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button className="w-full" disabled={true}>
-                  Upgrade to Pro (Coming Soon)
+                <Button
+                  onClick={handleCheckout}
+                  className="w-full cursor-pointer"
+                >
+                  Upgrade to Pro
                 </Button>
               </CardContent>
             </Card>
