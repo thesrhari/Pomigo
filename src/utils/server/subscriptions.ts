@@ -8,7 +8,8 @@ const supabase = createClient(
 export const handleSubscription = async (subscriptionData: any) => {
   const { error } = await supabase.from("subscriptions").upsert({
     user_id: subscriptionData.metadata.userId,
-    dodo_customer_id: subscriptionData.customer.customer_id,
+    subscription_id: subscriptionData.subscription_id,
+    customer_id: subscriptionData.customer.customer_id,
     status:
       subscriptionData.status === "on_hold" ? "due" : subscriptionData.status,
     start_date: subscriptionData.previous_billing_date,
