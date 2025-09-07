@@ -30,6 +30,7 @@ import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import { Switch } from "@/components/ui/switch";
+import { PricingModal } from "@/components/PricingModal";
 
 const formatDuration = (minutes: number) => {
   if (typeof minutes !== "number" || isNaN(minutes)) {
@@ -55,6 +56,8 @@ export default function ProfilePage() {
     stats,
     statsError,
   } = useProfile();
+
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -176,11 +179,38 @@ export default function ProfilePage() {
   };
 
   const handleCheckout = async () => {
+    setIsPricingModalOpen(true);
+
+    // if (!user || !profile) return;
+
+    // try {
+    //   const response = await fetch("/api/checkout", {
+    //     method: "POST",
+    //   });
+
+    //   const data = await response.json();
+
+    //   if (data.checkout_url) {
+    //     window.location.href = data.checkout_url;
+    //   } else {
+    //     // Handle cases where the checkout URL is not returned
+    //     console.error("Failed to create checkout session");
+    //   }
+    // } catch (error) {
+    //   console.error("An error occurred during checkout:", error);
+    // }
+  };
+
+  const handleUpgradeFromModal = async (
+    planType: "monthly" | "yearly" | "lifetime"
+  ) => {
     if (!user || !profile) return;
 
     try {
       const response = await fetch("/api/checkout", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planType }), // Send the selected plan type
       });
 
       const data = await response.json();
@@ -188,11 +218,14 @@ export default function ProfilePage() {
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
-        // Handle cases where the checkout URL is not returned
         console.error("Failed to create checkout session");
+        toast.error("Failed to create checkout session");
       }
     } catch (error) {
       console.error("An error occurred during checkout:", error);
+      toast.error("An error occurred during checkout");
+    } finally {
+      setIsPricingModalOpen(false);
     }
   };
 
@@ -562,6 +595,11 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        onUpgrade={handleUpgradeFromModal}
+      />
     </>
   );
 }
