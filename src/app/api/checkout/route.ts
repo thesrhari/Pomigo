@@ -18,8 +18,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { planType } = await req.json();
+
+    let product_id;
+
+    if (planType === "monthly") {
+      product_id = process.env.PRO_MONTHLY_PRODUCT_ID!;
+    } else if (planType === "yearly") {
+      product_id = process.env.PRO_YEARLY_PRODUCT_ID!;
+    } else if (planType === "lifetime") {
+      product_id = process.env.PRO_LIFETIME_PRODUCT_ID!;
+    } else {
+      return NextResponse.json({ error: "Invalid period" }, { status: 400 });
+    }
+
     checkoutSession = await dodoClient.checkoutSessions.create({
-      product_cart: [{ product_id: "pdt_2OuKDAsccSrSKdZ3htI4i", quantity: 1 }],
+      product_cart: [{ product_id, quantity: 1 }],
       allowed_payment_method_types: ["credit", "debit"],
       return_url: `${process.env.BASE_URL}/success`,
       customer: { email: user.email!, name: user.user_metadata.name },

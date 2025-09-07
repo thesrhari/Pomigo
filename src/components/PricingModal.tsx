@@ -10,12 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Check, Crown, Sparkles, Zap, Infinity } from "lucide-react";
+import { Check, Crown, Sparkles, Zap, Infinity, Loader2 } from "lucide-react"; // 1. Import Loader2
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpgrade: (planType: "monthly" | "yearly" | "lifetime") => void;
+  onUpgrade: (planType: "monthly" | "yearly" | "lifetime") => Promise<void>; // Changed to Promise for async handling
 }
 
 export const PricingModal = ({
@@ -24,6 +24,8 @@ export const PricingModal = ({
   onUpgrade,
 }: PricingModalProps) => {
   const [isYearly, setIsYearly] = useState(false);
+  // 2. State to track which plan is currently being processed
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const plans = [
     {
@@ -79,6 +81,28 @@ export const PricingModal = ({
     },
   ];
 
+  // 3. Handler function to manage loading state
+  const handleUpgradeClick = async (
+    planName: string,
+    planType: "monthly" | "yearly" | "lifetime" | "free"
+  ) => {
+    if (planType === "free") {
+      onClose();
+      return;
+    }
+
+    setLoadingPlan(planName);
+    try {
+      await onUpgrade(planType);
+      // On success, the parent component will likely close the modal.
+      // If it doesn't, you might want to reset the loading state here.
+    } catch (error) {
+      console.error("Upgrade failed:", error);
+      // On failure, re-enable the button for another attempt
+      setLoadingPlan(null);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-5xl w-[95vw] max-h-[95vh] overflow-hidden p-0 flex flex-col">
@@ -109,6 +133,7 @@ export const PricingModal = ({
                 checked={isYearly}
                 onCheckedChange={setIsYearly}
                 className="data-[state=checked]:bg-primary"
+                disabled={loadingPlan !== null} // Disable toggle while loading
               />
               <span
                 className={`text-sm transition-colors ${
@@ -137,6 +162,8 @@ export const PricingModal = ({
                   : "month"
                 : plan.period;
               const showSavings = isProPlan && isYearly;
+
+              const isLoading = loadingPlan === plan.name; // Check if this plan is loading
 
               return (
                 <div
@@ -235,16 +262,21 @@ export const PricingModal = ({
 
                   {/* Action Button - Always at bottom using mt-auto */}
                   <div className="mt-auto">
+                    {/* 4. Update Button with disabled state and conditional rendering */}
                     <Button
                       onClick={() => {
-                        if (plan.name === "Free") {
-                          onClose();
-                        } else if (plan.name === "Lifetime") {
-                          onUpgrade("lifetime");
-                        } else {
-                          onUpgrade(isYearly ? "yearly" : "monthly");
-                        }
+                        let planType:
+                          | "monthly"
+                          | "yearly"
+                          | "lifetime"
+                          | "free";
+                        if (plan.name === "Free") planType = "free";
+                        else if (plan.name === "Lifetime")
+                          planType = "lifetime";
+                        else planType = isYearly ? "yearly" : "monthly";
+                        handleUpgradeClick(plan.name, planType);
                       }}
+                      disabled={loadingPlan !== null} // Disable all buttons if any is loading
                       variant={plan.variant}
                       className={`w-full h-11 font-medium transition-all ${
                         plan.special
@@ -255,11 +287,22 @@ export const PricingModal = ({
                       }`}
                       size="lg"
                     >
-                      {plan.name === "Pro" && <Zap className="h-4 w-4 mr-2" />}
-                      {plan.name === "Lifetime" && (
-                        <Infinity className="h-4 w-4 mr-2" />
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                          {plan.buttonText}
+                        </>
+                      ) : (
+                        <>
+                          {plan.name === "Pro" && (
+                            <Zap className="h-4 w-4 mr-2" />
+                          )}
+                          {plan.name === "Lifetime" && (
+                            <Infinity className="h-4 w-4 mr-2" />
+                          )}
+                          {plan.buttonText}
+                        </>
                       )}
-                      {plan.buttonText}
                     </Button>
                   </div>
                 </div>
@@ -268,12 +311,7 @@ export const PricingModal = ({
           </div>
 
           {/* Footer Note - Better spacing to prevent cutoff */}
-          <div className="text-center mt-6 pt-4 border-t border-border/50">
-            <p className="text-xs text-muted-foreground">
-              All plans include a 14-day money-back guarantee. No questions
-              asked.
-            </p>
-          </div>
+          <div className="text-center mt-6 pt-4 border-t border-border/50"></div>
         </div>
       </DialogContent>
     </Dialog>
