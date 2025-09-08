@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Pomigo - Pomodoro Study App",
   description:
-    "A comprehensive study companion with Pomodoro timer, task management, and social features",
+    "Your study companion with Pomodoro timer, task management, and social features",
 };
 
 export default function RootLayout({
