@@ -51,7 +51,7 @@ export const FunStatsSection = ({ funStats }: FunStatsSectionProps) => {
             <p>
               Your most focused hour is around{" "}
               <span className="font-bold">{formatHour(powerHour.hour)}</span>,
-              where you've studied a total of{" "}
+              where you&apos;ve studied a total of{" "}
               {formatMinutes(powerHour.totalTime)}.
             </p>
           ) : (
@@ -80,7 +80,7 @@ export const FunStatsSection = ({ funStats }: FunStatsSectionProps) => {
           </div>
           {subjectDeepDive?.goToSubject ? (
             <p>
-              You've started a session on{" "}
+              You&apos;ve started a session on{" "}
               <span className="font-bold">
                 {subjectDeepDive.goToSubject.name}
               </span>{" "}

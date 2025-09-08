@@ -7,17 +7,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Calendar, CreditCard, User } from "lucide-react";
 import { Subscription } from "@/lib/hooks/useSubscription";
@@ -171,8 +164,8 @@ export const SubscriptionManagementModal: React.FC<
                   Cancel Subscription
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  Your subscription will be cancelled, but you'll continue to
-                  have access to Pro features until {nextBillingDate}. After
+                  Your subscription will be cancelled, but you&apos;ll continue
+                  to have access to Pro features until {nextBillingDate}. After
                   that, your account will revert to the free plan.
                 </p>
               </div>

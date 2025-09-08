@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Trash2, Loader2, AlertTriangle, Crown } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
@@ -159,7 +158,7 @@ export default function ProfilePage() {
         .single();
 
       if (originalProfile && originalProfile.username !== profile.username) {
-        const { data: existingUser, error } = await supabase
+        const { data: existingUser } = await supabase
           .from("profiles")
           .select("id")
           .eq("username", profile.username)
@@ -304,12 +303,6 @@ export default function ProfilePage() {
         { label: "Best streak", value: `${stats.bestStreak} days` },
       ]
     : [];
-
-  const getSubscriptionStatus = () => {
-    if (!isPro) return "Free Plan";
-    if (!isActive) return "Pro Plan (Inactive)";
-    return "Pro Plan";
-  };
 
   const getSubscriptionDescription = () => {
     if (!isPro) {

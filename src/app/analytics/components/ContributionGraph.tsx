@@ -7,8 +7,6 @@ import {
 import {
   format,
   getYear,
-  getMonth,
-  getDate,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,

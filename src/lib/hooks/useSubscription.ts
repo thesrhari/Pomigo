@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";

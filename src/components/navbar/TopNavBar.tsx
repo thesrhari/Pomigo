@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Timer } from "lucide-react";
 import { ThemeToggle } from "../ThemeToggle";
 import { useProfile } from "@/lib/hooks/useProfile";

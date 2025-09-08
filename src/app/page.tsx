@@ -7,7 +7,6 @@ import {
   Users,
   BarChart3,
   BookOpen,
-  Target,
   Check,
   Play,
   TrendingUp,
