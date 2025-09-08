@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { useSubscription } from "@/lib/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +25,11 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, Loader2, AlertTriangle, Crown } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
+import { SubscriptionManagementModal } from "@/components/SubscriptionManagementModal";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import { Switch } from "@/components/ui/switch";
@@ -57,7 +60,10 @@ export default function ProfilePage() {
     statsError,
   } = useProfile();
 
+  const { subscription, isPro, isActive } = useSubscription(user ?? null);
+
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -182,6 +188,10 @@ export default function ProfilePage() {
     setIsPricingModalOpen(true);
   };
 
+  const handleManageSubscription = () => {
+    setIsSubscriptionModalOpen(true);
+  };
+
   const handleCheckout = async (
     planType: "monthly" | "yearly" | "lifetime"
   ) => {
@@ -295,6 +305,22 @@ export default function ProfilePage() {
       ]
     : [];
 
+  const getSubscriptionStatus = () => {
+    if (!isPro) return "Free Plan";
+    if (!isActive) return "Pro Plan (Inactive)";
+    return "Pro Plan";
+  };
+
+  const getSubscriptionDescription = () => {
+    if (!isPro) {
+      return "You are currently on the Free Plan.";
+    }
+    if (!isActive) {
+      return "Your Pro subscription is not active.";
+    }
+    return "You are enjoying Pro features.";
+  };
+
   return (
     <>
       <AvatarCropper
@@ -302,6 +328,12 @@ export default function ProfilePage() {
         onClose={() => setEditorOpen(false)}
         image={selectedImage}
         onSave={handleSaveCroppedImage}
+      />
+
+      <SubscriptionManagementModal
+        isOpen={isSubscriptionModalOpen}
+        onClose={() => setIsSubscriptionModalOpen(false)}
+        subscription={subscription}
       />
 
       {/* Account Deletion Confirmation Dialog */}
@@ -483,21 +515,50 @@ export default function ProfilePage() {
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle>Subscription</CardTitle>
-                <CardDescription>
-                  You are currently on the{" "}
-                  <span className="font-semibold text-primary">Free Plan</span>.
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Subscription
+                      {isPro && isActive && (
+                        <Crown className="h-4 w-4 text-amber-500" />
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {getSubscriptionDescription()}
+                    </CardDescription>
+                  </div>
+                  {/* <Badge
+                    variant={isPro && isActive ? "default" : "secondary"}
+                    className={
+                      isPro && isActive
+                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                        : ""
+                    }
+                  >
+                    {getSubscriptionStatus()}
+                  </Badge> */}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button
-                  onClick={handleUpgradeClick}
-                  className="w-full cursor-pointer"
-                >
-                  Upgrade to Pro
-                </Button>
+                {isPro ? (
+                  <Button
+                    onClick={handleManageSubscription}
+                    className="w-full cursor-pointer"
+                    variant="outline"
+                  >
+                    Manage Subscription
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleUpgradeClick}
+                    className="w-full cursor-pointer"
+                  >
+                    Upgrade to Pro
+                  </Button>
+                )}
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Your Journey</CardTitle>
