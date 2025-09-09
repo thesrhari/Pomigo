@@ -34,8 +34,14 @@ export async function POST(req: Request) {
 
     checkoutSession = await dodoClient.checkoutSessions.create({
       product_cart: [{ product_id, quantity: 1 }],
-      allowed_payment_method_types: ["credit", "debit"],
-      return_url: `${process.env.BASE_URL}/success`,
+      allowed_payment_method_types: [
+        "credit",
+        "debit",
+        "amazon_pay",
+        "apple_pay",
+        "google_pay",
+      ],
+      return_url: `${process.env.BASE_URL}/subscription`,
       customer: { email: user.email!, name: user.user_metadata.name },
       metadata: { userId: user.id },
     });

@@ -25,10 +25,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trash2, Loader2, AlertTriangle, Crown } from "lucide-react";
+import { Trash2, Loader2, AlertTriangle, Crown, Settings } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
-import { SubscriptionManagementModal } from "@/components/SubscriptionManagementModal";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import { Switch } from "@/components/ui/switch";
@@ -62,7 +61,6 @@ export default function ProfilePage() {
   const { subscription, isPro, isActive } = useSubscription(user ?? null);
 
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
-  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -188,36 +186,10 @@ export default function ProfilePage() {
   };
 
   const handleManageSubscription = () => {
-    setIsSubscriptionModalOpen(true);
+    router.push("/subscription");
   };
 
-  const handleCheckout = async (
-    planType: "monthly" | "yearly" | "lifetime"
-  ) => {
-    if (!user || !profile) return;
-
-    try {
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType }), // Send the selected plan type
-      });
-
-      const data = await response.json();
-
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        console.error("Failed to create checkout session");
-        toast.error("Failed to create checkout session");
-      }
-    } catch (error) {
-      console.error("An error occurred during checkout:", error);
-      toast.error("An error occurred during checkout");
-    } finally {
-      setIsPricingModalOpen(false);
-    }
-  };
+  // 1. REMOVE the entire handleCheckout function from this file
 
   const handleDeleteAccount = async () => {
     if (!user || !profile) return;
@@ -321,12 +293,6 @@ export default function ProfilePage() {
         onClose={() => setEditorOpen(false)}
         image={selectedImage}
         onSave={handleSaveCroppedImage}
-      />
-
-      <SubscriptionManagementModal
-        isOpen={isSubscriptionModalOpen}
-        onClose={() => setIsSubscriptionModalOpen(false)}
-        subscription={subscription}
       />
 
       {/* Account Deletion Confirmation Dialog */}
@@ -520,16 +486,6 @@ export default function ProfilePage() {
                       {getSubscriptionDescription()}
                     </CardDescription>
                   </div>
-                  {/* <Badge
-                    variant={isPro && isActive ? "default" : "secondary"}
-                    className={
-                      isPro && isActive
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                        : ""
-                    }
-                  >
-                    {getSubscriptionStatus()}
-                  </Badge> */}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -539,6 +495,7 @@ export default function ProfilePage() {
                     className="w-full cursor-pointer"
                     variant="outline"
                   >
+                    <Settings className="mr-2 h-4 w-4" />
                     Manage Subscription
                   </Button>
                 ) : (
@@ -633,7 +590,6 @@ export default function ProfilePage() {
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}
-        onUpgrade={handleCheckout}
       />
     </>
   );

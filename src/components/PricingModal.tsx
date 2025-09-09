@@ -10,22 +10,54 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Check, Crown, Sparkles, Zap, Infinity, Loader2 } from "lucide-react"; // 1. Import Loader2
+import { Check, Crown, Sparkles, Zap, Infinity, Loader2 } from "lucide-react";
+import { useProfile } from "@/lib/hooks/useProfile";
+import { toast } from "react-toastify";
 
+// 3. Remove onUpgrade from props
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpgrade: (planType: "monthly" | "yearly" | "lifetime") => Promise<void>; // Changed to Promise for async handling
 }
 
-export const PricingModal = ({
-  isOpen,
-  onClose,
-  onUpgrade,
-}: PricingModalProps) => {
+export const PricingModal = ({ isOpen, onClose }: PricingModalProps) => {
+  const { user, profile } = useProfile();
   const [isYearly, setIsYearly] = useState(false);
-  // 2. State to track which plan is currently being processed
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  // 5. The checkout logic is now inside the modal
+  const handleCheckout = async (
+    planName: string,
+    planType: "monthly" | "yearly" | "lifetime"
+  ) => {
+    if (!user || !profile) {
+      toast.error("You must be logged in to upgrade.");
+      return;
+    }
+
+    setLoadingPlan(planName);
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planType }),
+      });
+
+      const data = await response.json();
+
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        toast.error("Failed to create checkout session. Please try again.");
+      }
+    } catch (error) {
+      console.error("An error occurred during checkout:", error);
+      toast.error("An error occurred during checkout. Please try again.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   const plans = [
     {
@@ -81,32 +113,9 @@ export const PricingModal = ({
     },
   ];
 
-  // 3. Handler function to manage loading state
-  const handleUpgradeClick = async (
-    planName: string,
-    planType: "monthly" | "yearly" | "lifetime" | "free"
-  ) => {
-    if (planType === "free") {
-      onClose();
-      return;
-    }
-
-    setLoadingPlan(planName);
-    try {
-      await onUpgrade(planType);
-      // On success, the parent component will likely close the modal.
-      // If it doesn't, you might want to reset the loading state here.
-    } catch (error) {
-      console.error("Upgrade failed:", error);
-      // On failure, re-enable the button for another attempt
-      setLoadingPlan(null);
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-5xl w-[95vw] max-h-[95vh] overflow-hidden p-0 flex flex-col">
-        {/* Header - Removed manual close button, shadcn provides it */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50 text-center">
           <DialogTitle className="text-2xl font-semibold mb-1">
             Choose your plan
@@ -133,7 +142,7 @@ export const PricingModal = ({
                 checked={isYearly}
                 onCheckedChange={setIsYearly}
                 className="data-[state=checked]:bg-primary"
-                disabled={loadingPlan !== null} // Disable toggle while loading
+                disabled={loadingPlan !== null}
               />
               <span
                 className={`text-sm transition-colors ${
@@ -163,7 +172,7 @@ export const PricingModal = ({
                 : plan.period;
               const showSavings = isProPlan && isYearly;
 
-              const isLoading = loadingPlan === plan.name; // Check if this plan is loading
+              const isLoading = loadingPlan === plan.name;
 
               return (
                 <div
@@ -176,7 +185,6 @@ export const PricingModal = ({
                       : "border-border"
                   }`}
                 >
-                  {/* Popular Badge */}
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Badge className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
@@ -186,7 +194,6 @@ export const PricingModal = ({
                     </div>
                   )}
 
-                  {/* Special Badge */}
                   {plan.special && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Badge className="bg-amber-500 text-white text-xs px-3 py-1 rounded-full">
@@ -196,7 +203,6 @@ export const PricingModal = ({
                     </div>
                   )}
 
-                  {/* Plan Header */}
                   <div className="text-center mb-6">
                     <div className="flex items-center justify-center gap-2 mb-2">
                       {plan.icon && (
@@ -208,8 +214,6 @@ export const PricingModal = ({
                       )}
                       <h3 className="text-xl font-semibold">{plan.name}</h3>
                     </div>
-
-                    {/* Simplified pricing display - less clutter */}
                     <div className="mb-2">
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-3xl font-bold">
@@ -223,7 +227,6 @@ export const PricingModal = ({
                           )}
                       </div>
 
-                      {/* Only show simple savings badge for yearly */}
                       {showSavings && (
                         <div className="mt-1">
                           <Badge variant="secondary" className="text-xs">
@@ -240,7 +243,6 @@ export const PricingModal = ({
                     )}
                   </div>
 
-                  {/* Features - grows to fill space */}
                   <ul className="space-y-3 mb-6 flex-grow">
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-start gap-3">
@@ -260,23 +262,23 @@ export const PricingModal = ({
                     ))}
                   </ul>
 
-                  {/* Action Button - Always at bottom using mt-auto */}
                   <div className="mt-auto">
-                    {/* 4. Update Button with disabled state and conditional rendering */}
+                    {/* 6. Update onClick to call the new internal handleCheckout function */}
                     <Button
                       onClick={() => {
-                        let planType:
-                          | "monthly"
-                          | "yearly"
-                          | "lifetime"
-                          | "free";
-                        if (plan.name === "Free") planType = "free";
-                        else if (plan.name === "Lifetime")
-                          planType = "lifetime";
-                        else planType = isYearly ? "yearly" : "monthly";
-                        handleUpgradeClick(plan.name, planType);
+                        if (plan.name === "Free") {
+                          onClose();
+                          return;
+                        }
+                        const planType =
+                          plan.name === "Lifetime"
+                            ? "lifetime"
+                            : isYearly
+                            ? "yearly"
+                            : "monthly";
+                        handleCheckout(plan.name, planType);
                       }}
-                      disabled={loadingPlan !== null} // Disable all buttons if any is loading
+                      disabled={loadingPlan !== null}
                       variant={plan.variant}
                       className={`w-full h-11 font-medium transition-all ${
                         plan.special
@@ -290,7 +292,7 @@ export const PricingModal = ({
                       {isLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />{" "}
-                          {plan.buttonText}
+                          <span className="ml-2">{plan.buttonText}</span>
                         </>
                       ) : (
                         <>
@@ -310,7 +312,6 @@ export const PricingModal = ({
             })}
           </div>
 
-          {/* Footer Note - Better spacing to prevent cutoff */}
           <div className="text-center mt-6 pt-4 border-t border-border/50"></div>
         </div>
       </DialogContent>

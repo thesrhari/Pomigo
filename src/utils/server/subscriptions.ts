@@ -8,12 +8,32 @@ const supabase = createClient(
 export const handleSubscription = async (subscriptionData: any) => {
   const { error } = await supabase.from("subscriptions").upsert({
     user_id: subscriptionData.metadata.userId,
-    subscription_id: subscriptionData.subscription_id,
     customer_id: subscriptionData.customer.customer_id,
+    subscription_id: subscriptionData.subscription_id,
+    payment_frequency_interval: subscriptionData.payment_frequency_interval,
     status:
       subscriptionData.status === "on_hold" ? "due" : subscriptionData.status,
     start_date: subscriptionData.previous_billing_date,
     end_date: subscriptionData.next_billing_date,
+    cancel_at_next_billing_date: subscriptionData.cancel_at_next_billing_date,
+  });
+
+  if (error) {
+    console.error("Error updating subscription to active:", error);
+    throw error;
+  }
+};
+
+export const handleLifetimeAccess = async (paymentData: any) => {
+  const { error } = await supabase.from("subscriptions").upsert({
+    user_id: paymentData.metadata.userId,
+    customer_id: paymentData.customer.customer_id,
+    subscription_id: paymentData.subscription_id,
+    payment_frequency_interval: null,
+    status: "active",
+    start_date: paymentData.created_at,
+    end_date: null,
+    cancel_at_next_billing_date: null,
   });
 
   if (error) {
@@ -26,9 +46,12 @@ export const handlePayments = async (paymentData: any) => {
   const { error } = await supabase.from("payments").upsert({
     user_id: paymentData.metadata.userId,
     transaction_id: paymentData.payment_id,
-    amount: paymentData.settlement_amount,
+    subscription_id: paymentData.subscription_id,
+    amount: paymentData.settlement_amount - paymentData.settlement_tax,
     currency: paymentData.settlement_currency,
     status: "completed",
+    card_last_four: paymentData.card_last_four,
+    card_network: paymentData.card_network,
   });
 
   if (error) {

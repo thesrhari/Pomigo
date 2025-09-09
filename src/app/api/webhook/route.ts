@@ -2,6 +2,7 @@ import { Webhook } from "standardwebhooks";
 import { headers } from "next/headers";
 import { dodoClient } from "@/utils/server/dodo";
 import {
+  handleLifetimeAccess,
   handlePayments,
   handleRefund,
   handleSubscription,
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
           const paymentData = await dodoClient.payments.retrieve(
             payload.data.payment_id
           );
+          if (paymentData.subscription_id === null) {
+            await handleLifetimeAccess(paymentData);
+          }
           await handlePayments(paymentData);
         default:
           break;
