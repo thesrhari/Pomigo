@@ -6,12 +6,15 @@ import {
   startOfDay,
   startOfWeek,
   startOfMonth,
+  startOfYear,
   subDays,
   subWeeks,
   subMonths,
+  subYears,
   endOfDay,
   endOfWeek,
   endOfMonth,
+  endOfYear,
   format,
   getYear,
   getDay,
@@ -28,9 +31,20 @@ const PIE_CHART_COLORS = [
   "var(--chart-5)",
 ];
 
-// --- TYPE DEFINITIONS (Unchanged) ---
+// --- TYPE DEFINITIONS ---
 
-export type TimeFilter = "today" | "week" | "month" | "all-time";
+export type DateFilter = {
+  type:
+    | "today"
+    | "week"
+    | "month"
+    | "all-time"
+    | "specific_day"
+    | "specific_week"
+    | "specific_month"
+    | "specific_year";
+  date?: Date;
+};
 
 interface RawSession {
   session_type: "study" | "short_break" | "long_break";
@@ -117,7 +131,7 @@ const fetcher = async () => {
 
 // --- HOOK IMPLEMENTATION WITH SWR ---
 
-export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
+export function useAnalyticsData(filter: DateFilter, contributionYear: number) {
   const {
     data: allSessions,
     error,
@@ -127,7 +141,6 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
   const processedData = useMemo(() => {
     if (!allSessions) return null;
 
-    // --- 1. Process all-time data for streaks, insights, and year list ---
     const allStudySessions = allSessions
       .filter((s) => s.session_type === "study")
       .map((s) => ({
@@ -135,13 +148,13 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
         subject: s.subject || "Uncategorized",
       })) as FullStudySession[];
 
-    // --- 2. Calculate date ranges for current and previous periods ---
     const { currentRange, previousRange } = getDateRanges(filter);
 
-    // --- 3. Filter sessions for the current and previous periods ---
     const currentPeriodSessions = allSessions.filter((s) => {
       const sessionDate = new Date(s.started_at);
-      return currentRange.start ? sessionDate >= currentRange.start : true;
+      return currentRange.start
+        ? sessionDate >= currentRange.start && sessionDate <= currentRange.end!
+        : true;
     });
 
     const previousPeriodSessions =
@@ -155,7 +168,6 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
           })
         : [];
 
-    // --- 4. Process data for both periods ---
     const currentData = processSessions(currentPeriodSessions);
     const previousData = processSessions(previousPeriodSessions);
 
@@ -167,12 +179,10 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
       }))
       .sort((a, b) => b.value - a.value);
 
-    // --- 5. Calculate streaks and insightful stats from all-time data ---
     const { currentStreak, bestStreak } = calculateStreaks(allStudySessions);
     const productiveHours = calculateProductiveHours(allStudySessions);
     const funStats = calculateFunStats(allStudySessions);
 
-    // --- 6. Calculate contribution graph data for the selected year ---
     const { contributionData, totalContributionTimeForYear } =
       getContributionDataForYear(allStudySessions, contributionYear);
 
@@ -212,7 +222,7 @@ export function useAnalyticsData(filter: TimeFilter, contributionYear: number) {
   };
 }
 
-// --- HELPER & CALCULATION FUNCTIONS (Unchanged) ---
+// --- HELPER & CALCULATION FUNCTIONS ---
 
 function processSessions(sessions: RawSession[]) {
   const accumulator = {
@@ -248,8 +258,10 @@ function processSessions(sessions: RawSession[]) {
   return { ...accumulator, averageSessionLength };
 }
 
-function getDateRanges(filter: TimeFilter) {
+function getDateRanges(filter: DateFilter) {
   const now = new Date();
+  const refDate = filter.date || now;
+
   let currentRange: { start: Date | null; end: Date | null } = {
     start: null,
     end: null,
@@ -259,7 +271,38 @@ function getDateRanges(filter: TimeFilter) {
     end: null,
   };
 
-  switch (filter) {
+  switch (filter.type) {
+    case "specific_day":
+      currentRange = { start: startOfDay(refDate), end: endOfDay(refDate) };
+      previousRange = {
+        start: startOfDay(subDays(refDate, 1)),
+        end: endOfDay(subDays(refDate, 1)),
+      };
+      break;
+    case "specific_week":
+      currentRange = {
+        start: startOfWeek(refDate, { weekStartsOn: 1 }),
+        end: endOfWeek(refDate, { weekStartsOn: 1 }),
+      };
+      previousRange = {
+        start: startOfWeek(subWeeks(refDate, 1), { weekStartsOn: 1 }),
+        end: endOfWeek(subWeeks(refDate, 1), { weekStartsOn: 1 }),
+      };
+      break;
+    case "specific_month":
+      currentRange = { start: startOfMonth(refDate), end: endOfMonth(refDate) };
+      previousRange = {
+        start: startOfMonth(subMonths(refDate, 1)),
+        end: endOfMonth(subMonths(refDate, 1)),
+      };
+      break;
+    case "specific_year":
+      currentRange = { start: startOfYear(refDate), end: endOfYear(refDate) };
+      previousRange = {
+        start: startOfYear(subYears(refDate, 1)),
+        end: endOfYear(subYears(refDate, 1)),
+      };
+      break;
     case "today":
       currentRange = { start: startOfDay(now), end: now };
       previousRange = {
@@ -340,7 +383,6 @@ function getContributionDataForYear(
   sessions: FullStudySession[],
   year: number
 ) {
-  // Use a more detailed accumulator object
   const contributions: {
     [key: string]: {
       totalStudyTime: number;
@@ -355,7 +397,6 @@ function getContributionDataForYear(
     if (getYear(sessionDate) === year) {
       const date = format(sessionDate, "yyyy-MM-dd");
 
-      // Initialize the day's record if it doesn't exist
       if (!contributions[date]) {
         contributions[date] = {
           totalStudyTime: 0,
@@ -364,7 +405,6 @@ function getContributionDataForYear(
         };
       }
 
-      // Aggregate data
       contributions[date].totalStudyTime += session.duration;
       contributions[date].sessionCount += 1;
 
@@ -376,7 +416,6 @@ function getContributionDataForYear(
     }
   });
 
-  // Transform the map into the final array structure
   const contributionData: DailyContribution[] = Object.entries(
     contributions
   ).map(([date, data]) => ({
@@ -402,11 +441,8 @@ function calculateProductiveHours(
   const sortedHours = Object.entries(hourCounts).sort((a, b) => b[1] - a[1]);
   const peakHour = parseInt(sortedHours[0][0]);
 
-  // --- CORRECTED LOGIC ---
-  // Define the productive period as a one-hour window starting from the peak hour.
   const start = peakHour;
   const end = peakHour + 1;
-  // --- END OF CORRECTION ---
 
   return {
     start,
@@ -418,7 +454,6 @@ function calculateProductiveHours(
 function calculateFunStats(sessions: FullStudySession[]): FunStatsData | null {
   if (sessions.length === 0) return null;
 
-  // 1. Power Hour (hour with most total study time)
   const timePerHour: { [key: number]: number } = {};
   sessions.forEach((s) => {
     const hour = getHours(new Date(s.started_at));
@@ -431,7 +466,6 @@ function calculateFunStats(sessions: FullStudySession[]): FunStatsData | null {
     ? { hour: parseInt(powerHourEntry[0]), totalTime: powerHourEntry[1] }
     : null;
 
-  // 2. Most Productive Day (day with most total study time)
   const timePerDay: { [key: number]: number } = {};
   const dayNames = [
     "Sunday",
@@ -456,7 +490,6 @@ function calculateFunStats(sessions: FullStudySession[]): FunStatsData | null {
       }
     : null;
 
-  // 3. Subject Deep Dive
   const sessionsPerSubject: { [key: string]: number } = {};
   const timePerSubject: { [key: string]: number } = {};
   sessions.forEach((s) => {

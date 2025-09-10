@@ -1,12 +1,16 @@
+// AnalyticsPage.tsx
 "use client";
-import { useState } from "react";
-import { useAnalyticsData, TimeFilter } from "@/lib/hooks/useAnalyticsData";
+import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import { useAnalyticsData, DateFilter } from "@/lib/hooks/useAnalyticsData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalyticsPageSkeleton } from "./components/AnalyticsPageSkeleton";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { ActivityTab } from "./tabs/ActivityTab";
 import { InsightsTab } from "./tabs/InsightsTab";
 import { Sun, Moon } from "lucide-react";
+import { useUser } from "@/lib/hooks/useUser";
 
 // --- HELPER FUNCTIONS (Unchanged) ---
 export const formatHour = (hour: number) => {
@@ -17,10 +21,12 @@ export const formatHour = (hour: number) => {
 
 // --- MAIN PAGE COMPONENT ---
 export default function AnalyticsPage() {
-  const [dateFilter, setDateFilter] = useState<TimeFilter>("week");
+  const { user } = useUser();
+  const [dateFilter, setDateFilter] = useState<DateFilter>({ type: "today" });
   const [contributionYear, setContributionYear] = useState<number>(
     new Date().getFullYear()
   );
+
   const { data, loading, error, availableYears } = useAnalyticsData(
     dateFilter,
     contributionYear
@@ -72,6 +78,7 @@ export default function AnalyticsPage() {
         </TabsList>
         <TabsContent value="overview">
           <OverviewTab
+            user={user || null}
             data={data}
             dateFilter={dateFilter}
             setDateFilter={setDateFilter}

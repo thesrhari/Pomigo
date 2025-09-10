@@ -1,27 +1,22 @@
+// FilterableContent.tsx
 "use client";
 
+import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useProStatus } from "@/lib/hooks/useProStatus";
+import { DateFilter } from "@/lib/hooks/useAnalyticsData";
+import { FreeFilterComponent, ProFilterComponent } from "../components/Filter";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { StatCard } from "../components/StatCard";
-import {
-  Brain,
-  Target,
-  Clock,
-  Timer,
-  Coffee,
-  Award,
-  PieChart as PieChartIcon,
-} from "lucide-react";
-import { formatMinutes } from "@/utils/client/formatMinutes";
+  StudyStatsGrid,
+  SubjectDistributionChart,
+  BreakdownCard,
+} from "../components/Statistics";
+import { PricingModal } from "@/components/PricingModal";
+import { getCurrentDateForType } from "@/utils/client/date";
 
-// Define a more specific type for your data if possible
 interface FilterableContentProps {
+  user: User | null;
   data: {
     totalStudyTime: number;
     totalStudySessions: number;
@@ -31,9 +26,17 @@ interface FilterableContentProps {
     totalShortBreakTime: number;
     totalLongBreakTime: number;
   };
+  filter: DateFilter;
+  setFilter: (filter: DateFilter) => void;
 }
 
-export const FilterableContent = ({ data }: FilterableContentProps) => {
+export const FilterableContent = ({
+  user,
+  data,
+  filter,
+  setFilter,
+}: FilterableContentProps) => {
+  const { isPro, isLoading } = useProStatus(user);
   const {
     totalStudyTime,
     totalStudySessions,
@@ -44,146 +47,101 @@ export const FilterableContent = ({ data }: FilterableContentProps) => {
     totalLongBreakTime,
   } = data;
 
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Wait until the pro status has been determined
+    if (isLoading) {
+      return;
+    }
+
+    if (isPro) {
+      let newFilter = { ...filter };
+      let needsUpdate = false;
+
+      // If the current filter is a "free" type, convert it to the "pro" equivalent.
+      // This handles the initial load where the default is "today".
+      if (["today", "week", "month"].includes(newFilter.type)) {
+        const proType = `specific_${
+          newFilter.type === "today" ? "day" : newFilter.type
+        }`;
+        newFilter.type = proType as DateFilter["type"];
+        needsUpdate = true;
+      }
+
+      // If the filter is a "pro" type but is missing a date, add the current date.
+      // This fixes the original problem.
+      if (newFilter.type.startsWith("specific_") && !newFilter.date) {
+        const filterType = newFilter.type.substring(9) as
+          | "day"
+          | "week"
+          | "month"
+          | "year";
+        newFilter.date = getCurrentDateForType(filterType);
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        setFilter(newFilter);
+      }
+    } else {
+      // If the user is NOT pro, ensure they are not on a pro-only filter type.
+      if (filter.type.startsWith("specific_")) {
+        setFilter({ type: "today" }); // Revert to a safe default for free users
+      }
+    }
+  }, [isPro, isLoading, filter, setFilter]);
+
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard
-          title="Total Study Time"
-          value={formatMinutes(totalStudyTime)}
-          icon={Brain}
-          color="--primary"
-        />
-        <StatCard
-          title="Focus Sessions"
-          value={totalStudySessions.toString()}
-          icon={Target}
-          color="--chart-2"
-        />
-        <StatCard
-          title="Avg. Session Length"
-          value={formatMinutes(averageSessionLength)}
-          icon={Clock}
-          color="--chart-4"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Subject Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 w-full">
-              {totalTimePerSubject.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={totalTimePerSubject}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="80%"
-                      paddingAngle={5}
-                      dataKey="value"
-                      nameKey="name"
-                    >
-                      {totalTimePerSubject.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => formatMinutes(value)}
-                      contentStyle={{
-                        backgroundColor: "var(--card)",
-                        borderColor: "var(--border)",
-                      }}
-                      itemStyle={{
-                        color: "var(--foreground)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No study data for this period.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col justify-between h-full pt-4">
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Timer className="w-4 h-4 mr-2" /> Total Break Time
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalBreakTime)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Coffee className="w-4 h-4 mr-2" /> Short Breaks
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalShortBreakTime)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center">
-                  <Award className="w-4 h-4 mr-2" /> Long Breaks
-                </span>
-                <span className="font-medium">
-                  {formatMinutes(totalLongBreakTime)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                <PieChartIcon className="w-4 h-4 mr-2" /> Study vs. Break Ratio
-              </div>
-              {totalStudyTime + totalBreakTime > 0 ? (
-                <ResponsiveContainer width="100%" height={120}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: "Study", value: totalStudyTime },
-                        { name: "Break", value: totalBreakTime },
-                      ]}
-                      dataKey="value"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={50}
-                    >
-                      <Cell fill="var(--primary)" />
-                      <Cell fill="var(--popover-foreground)" />
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(value: number) => formatMinutes(value)}
-                      contentStyle={{
-                        backgroundColor: "var(--card)",
-                        borderColor: "var(--border)",
-                      }}
-                      itemStyle={{
-                        color: "var(--foreground)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-[120px] text-xs text-muted-foreground">
-                  No activity to display.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="mt-4">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <CardTitle className="pt-2">Period Overview</CardTitle>
+          <div className="flex flex-col items-end gap-2">
+            {isLoading ? (
+              <div className="h-10 w-48 animate-pulse rounded-md bg-muted" />
+            ) : isPro ? (
+              <ProFilterComponent filter={filter} setFilter={setFilter} />
+            ) : (
+              <FreeFilterComponent filter={filter} setFilter={setFilter} />
+            )}
+            {!isLoading && !isPro && (
+              <p className="text-xs text-muted-foreground pr-1">
+                ✨{" "}
+                <a
+                  onClick={() => setIsPricingModalOpen(true)}
+                  className="underline cursor-pointer hover:text-primary"
+                >
+                  Upgrade to Pro
+                </a>{" "}
+                to filter by a custom date.
+              </p>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <StudyStatsGrid
+            totalStudyTime={totalStudyTime}
+            totalStudySessions={totalStudySessions}
+            averageSessionLength={averageSessionLength}
+          />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <SubjectDistributionChart
+              totalTimePerSubject={totalTimePerSubject}
+            />
+            <BreakdownCard
+              totalStudyTime={totalStudyTime}
+              totalBreakTime={totalBreakTime}
+              totalShortBreakTime={totalShortBreakTime}
+              totalLongBreakTime={totalLongBreakTime}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+      />
     </>
   );
 };
