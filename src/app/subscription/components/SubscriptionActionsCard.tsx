@@ -74,7 +74,8 @@ export const SubscriptionActionsCard: React.FC<
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              You're currently on the free plan. Upgrade to unlock Pro features.
+              You&apos;re currently on the free plan. Upgrade to unlock Pro
+              features.
             </p>
             <Button
               className="w-full cursor-pointer"
@@ -135,7 +136,7 @@ export const SubscriptionActionsCard: React.FC<
             </DialogTitle>
             <DialogDescription className="flex flex-col gap-2">
               <span>
-                Are you sure you want to cancel your subscription? You'll
+                Are you sure you want to cancel your subscription? You&apos;ll
                 continue to have access to Pro features until your current
                 billing period ends
                 {subscription?.end_date && (
