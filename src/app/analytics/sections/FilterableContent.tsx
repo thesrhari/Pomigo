@@ -94,11 +94,11 @@ export const FilterableContent = ({ data }: FilterableContentProps) => {
                     <RechartsTooltip
                       formatter={(value: number) => formatMinutes(value)}
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        borderColor: "hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        borderColor: "var(--border)",
                       }}
                       itemStyle={{
-                        color: "hsl(var(--foreground))",
+                        color: "var(--foreground)",
                       }}
                     />
                   </PieChart>
@@ -160,17 +160,17 @@ export const FilterableContent = ({ data }: FilterableContentProps) => {
                       cy="50%"
                       outerRadius={50}
                     >
-                      <Cell fill="hsl(var(--primary))" />
-                      <Cell fill="hsl(var(--secondary))" />
+                      <Cell fill="var(--primary)" />
+                      <Cell fill="var(--popover-foreground)" />
                     </Pie>
                     <RechartsTooltip
                       formatter={(value: number) => formatMinutes(value)}
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        borderColor: "hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        borderColor: "var(--border)",
                       }}
                       itemStyle={{
-                        color: "hsl(var(--foreground))",
+                        color: "var(--foreground)",
                       }}
                     />
                   </PieChart>

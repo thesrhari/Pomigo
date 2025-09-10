@@ -16,7 +16,7 @@ export function StatCard({ title, value, icon: Icon, color }: StatCardProps) {
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon
           className="w-5 h-5 text-muted-foreground"
-          style={{ color: `hsl(var(${color}))` }}
+          style={{ color: `var(${color})` }}
         />
       </CardHeader>
       <CardContent>
