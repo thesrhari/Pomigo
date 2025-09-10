@@ -318,8 +318,8 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
               <div className="mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold mb-2">Your Subjects</h3>
                 <p className="text-sm text-muted-foreground">
-                  {subjects.length} subject{subjects.length !== 1 ? "s" : ""}{" "}
-                  created
+                  {subjects.length - 1} subject
+                  {subjects.length - 1 !== 1 ? "s" : ""} created
                 </p>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">

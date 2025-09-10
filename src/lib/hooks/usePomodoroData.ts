@@ -175,21 +175,10 @@ export function usePomodoroData() {
 
       const subjectNameToDelete = subjectToDelete.subject_name;
 
-      // Get the 'Uncategorized' subject id
-      const { data: uncategorizedSubject, error: uncategorizedError } =
-        await supabase
-          .from("subjects")
-          .select("subject_name")
-          .eq("user_id", userId)
-          .eq("subject_name", "Uncategorized")
-          .single();
-
-      if (uncategorizedError) throw uncategorizedError;
-
       // Update sessions related to the deleted subject
       const { error: updateError } = await supabase
         .from("sessions")
-        .update({ subject: uncategorizedSubject.subject_name })
+        .update({ subject: "Uncategorized" })
         .eq("user_id", userId)
         .eq("subject", subjectNameToDelete);
 
