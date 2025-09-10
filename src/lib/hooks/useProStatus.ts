@@ -2,6 +2,7 @@ import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 
+// The Subscription interface can be kept for type safety within the fetcher.
 export interface Subscription {
   user_id: string;
   subscription_id: string;
@@ -13,13 +14,9 @@ export interface Subscription {
   updated_at: string;
 }
 
-interface UseSubscriptionReturn {
-  subscription: Subscription | null;
-  isLoading: boolean;
-  error: any;
+interface UseProStatusReturn {
   isPro: boolean;
-  isActive: boolean;
-  mutate: () => void;
+  isLoading: boolean;
 }
 
 const fetcher = async (
@@ -35,7 +32,7 @@ const fetcher = async (
     .single();
 
   if (error) {
-    // If no subscription found, return null (not an error)
+    // If no subscription is found, return null instead of throwing an error.
     if (error.code === "PGRST116") {
       return null;
     }
@@ -45,31 +42,16 @@ const fetcher = async (
   return data;
 };
 
-export const useSubscription = (user: User | null): UseSubscriptionReturn => {
-  const {
-    data: subscription,
-    error,
-    isLoading,
-    mutate,
-  } = useSWR(
+export const useProStatus = (user: User | null): UseProStatusReturn => {
+  const { data: subscription, isLoading } = useSWR(
     user ? ["subscription", user.id] : null,
-    ([, userId]) => fetcher("subscription", userId),
-    {
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 300000, // 5 minutes
-    }
+    ([, userId]) => fetcher("subscription", userId)
   );
 
-  const isPro = subscription !== null && subscription !== undefined;
-  const isActive = subscription?.status === "active";
+  const isPro =
+    !!subscription &&
+    subscription.status === "active" &&
+    new Date(subscription.end_date) > new Date();
 
-  return {
-    subscription: subscription ?? null,
-    isLoading,
-    error,
-    isPro,
-    isActive,
-    mutate,
-  };
+  return { isPro, isLoading };
 };

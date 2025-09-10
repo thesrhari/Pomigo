@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProfile } from "@/lib/hooks/useProfile";
-import { useSubscription } from "@/lib/hooks/useSubscription";
+import { useProStatus } from "@/lib/hooks/useProStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,7 +58,7 @@ export default function ProfilePage() {
     statsError,
   } = useProfile();
 
-  const { subscription, isPro, isActive } = useSubscription(user ?? null);
+  const { isPro } = useProStatus(user ?? null);
 
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
@@ -280,10 +280,7 @@ export default function ProfilePage() {
     if (!isPro) {
       return "You are currently on the Free Plan.";
     }
-    if (!isActive) {
-      return "Your Pro subscription is not active.";
-    }
-    return "You are enjoying Pro features.";
+    return "Your Pro subscription is active.";
   };
 
   return (
@@ -478,11 +475,9 @@ export default function ProfilePage() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       Subscription
-                      {isPro && isActive && (
-                        <Crown className="h-4 w-4 text-amber-500" />
-                      )}
+                      {isPro && <Crown className="h-4 w-4 text-amber-500" />}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="mt-2">
                       {getSubscriptionDescription()}
                     </CardDescription>
                   </div>

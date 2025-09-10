@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Calendar, CreditCard, User } from "lucide-react";
-import { Subscription } from "@/lib/hooks/useSubscription";
+import { Subscription } from "@/lib/hooks/useProStatus";
 import { toast } from "react-toastify";
 
 interface SubscriptionManagementModalProps {
