@@ -85,7 +85,7 @@ export function useDashboard() {
     data: statsData,
     loading: statsLoading,
     error: statsError,
-  } = useAnalyticsData("today", new Date().getFullYear());
+  } = useAnalyticsData({ type: "today" }, new Date().getFullYear());
 
   const userName = user?.user_metadata?.full_name || "there";
 
