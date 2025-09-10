@@ -181,10 +181,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleUpgradeClick = async () => {
-    setIsPricingModalOpen(true);
-  };
-
   const handleManageSubscription = () => {
     router.push("/subscription");
   };
@@ -495,7 +491,7 @@ export default function ProfilePage() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={handleUpgradeClick}
+                    onClick={() => setIsPricingModalOpen(true)}
                     className="w-full cursor-pointer"
                   >
                     Upgrade to Pro

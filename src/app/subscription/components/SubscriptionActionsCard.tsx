@@ -41,10 +41,6 @@ export const SubscriptionActionsCard: React.FC<
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
-  const handleUpgradeClick = async () => {
-    setIsPricingModalOpen(true);
-  };
-
   const handleCancel = async () => {
     await onCancel();
     setShowCancelDialog(false);
@@ -79,7 +75,7 @@ export const SubscriptionActionsCard: React.FC<
             </p>
             <Button
               className="w-full cursor-pointer"
-              onClick={handleUpgradeClick}
+              onClick={() => setIsPricingModalOpen(true)}
             >
               Upgrade to Pro
             </Button>

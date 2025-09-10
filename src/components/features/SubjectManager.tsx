@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Edit3, Trash2, Palette } from "lucide-react";
+import { Plus, Edit3, Trash2, Palette, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
-import { PostgrestError } from "@supabase/supabase-js";
+import { PostgrestError, User } from "@supabase/supabase-js";
+import { useProStatus } from "@/lib/hooks/useProStatus";
+import { PricingModal } from "../PricingModal";
 
 const supabase = createClient();
 
@@ -43,22 +45,13 @@ interface SubjectManagerProps {
 }
 
 const formatDuration = (minutes: number) => {
-  // Handle cases where the input is 0 or not a valid number
   if (!minutes || minutes < 0) {
     return "0min";
   }
-
-  // Calculate the whole number of hours
   const hours = Math.floor(minutes / 60);
-
-  // Calculate the remaining minutes using the modulo operator
   const remainingMinutes = minutes % 60;
-
-  // Build the formatted string
   const hoursString = hours > 0 ? `${hours}hr` : "";
   const minutesString = remainingMinutes > 0 ? `${remainingMinutes}min` : "";
-
-  // Join the parts with a space, ensuring no leading/trailing spaces
   return [hoursString, minutesString].filter(Boolean).join(" ");
 };
 
@@ -75,8 +68,25 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     name: "",
     color: "#3B82F6",
   });
-
   const [isLoading, setIsLoading] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+
+  // Fetch user and check pro status
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+  }, []);
+
+  const { isPro, isLoading: isProLoading } = useProStatus(user);
+  const freeUserSubjectLimit = 3;
+  const isLimitReached = !isPro && subjects.length >= freeUserSubjectLimit + 1; // Don't count Uncategorized
+
   const presetColors = [
     "#3B82F6",
     "#10B981",
@@ -93,6 +103,12 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
   ];
 
   const addSubject = async () => {
+    if (isLimitReached) {
+      toast.error(
+        "Free users can create up to 3 subjects. Upgrade to PRO for unlimited subjects."
+      );
+      return;
+    }
     if (!newSubject.name.trim()) return;
     setIsLoading(true);
     try {
@@ -177,6 +193,25 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                     Create a new study subject with a custom color
                   </p>
                 </div>
+                {isLimitReached && (
+                  <div className="mb-6 flex items-center gap-3 text-sm p-4 mt-4 rounded-lg border border-destructive/40 bg-background">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0 text-destructive" />
+                    <div className="text-left text-muted-foreground flex flex-col gap-1">
+                      <span>
+                        You&apos;ve reached the 3 subject limit on free plan.
+                      </span>
+                      <span>
+                        <a
+                          onClick={() => setIsPricingModalOpen(true)}
+                          className="font-semibold underline text-primary hover:text-primary/80 cursor-pointer"
+                        >
+                          Upgrade to Pro
+                        </a>{" "}
+                        for unlimited subject creation.
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <Label
@@ -194,7 +229,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       }
                       placeholder="e.g., Mathematics, Physics, History..."
                       className="h-11 text-base"
-                      disabled={isLoading}
+                      disabled={isLoading || isLimitReached || isProLoading}
                       onKeyDown={(e) => e.key === "Enter" && addSubject()}
                     />
                   </div>
@@ -223,7 +258,9 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                               })
                             }
                             className="w-16 h-8 p-1 border-2 cursor-pointer rounded-lg"
-                            disabled={isLoading}
+                            disabled={
+                              isLoading || isLimitReached || isProLoading
+                            }
                           />
                         </div>
                       </div>
@@ -244,7 +281,9 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                               onClick={() =>
                                 setNewSubject({ ...newSubject, color })
                               }
-                              disabled={isLoading}
+                              disabled={
+                                isLoading || isLimitReached || isProLoading
+                              }
                             />
                           ))}
                         </div>
@@ -254,17 +293,21 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   <Button
                     onClick={addSubject}
                     className="cursor-pointer w-full h-11 text-base bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
-                    disabled={!newSubject.name.trim() || isLoading}
+                    disabled={
+                      !newSubject.name.trim() ||
+                      isLoading ||
+                      isLimitReached ||
+                      isProLoading
+                    }
                   >
                     {isLoading ? (
                       <>
-                        <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
                         Adding...
                       </>
                     ) : (
                       <>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Subject
+                        <Plus className="w-4 h-4 mr-2" /> Add Subject
                       </>
                     )}
                   </Button>
@@ -459,7 +502,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
                     Saving...
                   </>
                 ) : (
@@ -492,7 +535,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
                   Deleting...
                 </>
               ) : (
@@ -502,6 +545,10 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+      />
     </>
   );
 };

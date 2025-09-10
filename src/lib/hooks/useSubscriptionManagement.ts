@@ -137,7 +137,7 @@ export const useSubscriptionManagement = (user: User | null) => {
         body: JSON.stringify({ subscriptionId: subscription.subscription_id }),
       });
       if (!response.ok) throw new Error("Failed to cancel subscription");
-      toast.success("Subscription cancelled successfully");
+      toast.info("Subscription scheduled for cancellation");
       await fetchSubscriptionDetails();
     } catch (error) {
       console.error("Error cancelling subscription:", error);
