@@ -1,6 +1,6 @@
 import useSWR, { useSWRConfig } from "swr";
 import { createClient } from "../supabase/client";
-import { useEffect, useState } from "react";
+import { useUser } from "./useUser";
 
 // Types
 interface Subject {
@@ -23,20 +23,6 @@ interface PomodoroSettings {
 
 // Initialize Supabase client
 const supabase = createClient();
-
-async function getUser() {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error) throw error;
-    return user;
-  } catch (err) {
-    console.error("Error getting user:", err);
-    return null;
-  }
-}
 
 // Fetcher functions for SWR
 const fetchSubjects = async (userId: string): Promise<Subject[]> => {
@@ -102,19 +88,9 @@ const fetchPomodoroSettings = async (
   };
 };
 
-export function useSupabaseData() {
+export function usePomodoroData() {
   const { mutate } = useSWRConfig();
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const user = await getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-    fetchUser();
-  }, []);
+  const { userId, isLoading: isUserLoading } = useUser();
 
   const {
     data: subjects,
@@ -259,7 +235,7 @@ export function useSupabaseData() {
   return {
     subjects: subjects || [],
     pomodoroSettings,
-    loading: subjectsLoading || pomodoroLoading,
+    loading: isUserLoading || subjectsLoading || pomodoroLoading,
     error: subjectsError || pomodoroError,
     addSubject,
     updateSubjects,

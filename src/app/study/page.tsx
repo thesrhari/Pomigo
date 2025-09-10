@@ -14,7 +14,7 @@ import { SubjectManager } from "@/components/features/SubjectManager";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
 import { Play, Pause, Settings, RotateCcw, SkipForward } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
-import { useSupabaseData } from "@/lib/hooks/useSupabaseData";
+import { usePomodoroData } from "@/lib/hooks/usePomodoroData";
 import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
@@ -39,7 +39,7 @@ export default function PomodoroPage() {
     updateSubjects,
     deleteSubject,
     updatePomodoroSettings,
-  } = useSupabaseData();
+  } = usePomodoroData();
   const { playSound } = useAudioNotifications();
   const [timerRunning, setTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
