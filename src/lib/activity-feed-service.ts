@@ -44,6 +44,9 @@ interface ActivityFeedEntry {
   metadata: Record<string, any>;
 }
 
+// Define the shape of the options for fetching the feed
+type GetFeedOptions = { limit: number } | { timeframeInHours: number };
+
 export class ActivityFeedService {
   private generateRandomMinutes(baseMinutes: number): number {
     // Add random minutes (0-59) to make it more realistic
@@ -300,8 +303,10 @@ export class ActivityFeedService {
     return currentStreak;
   }
 
-  // Fetch activity feed for user's friends
-  async getFriendActivityFeed(limit: number): Promise<ActivityFeedItem[]> {
+  // Fetch activity feed for user's friends with conditional logic
+  async getFriendActivityFeed(
+    options: GetFeedOptions
+  ): Promise<ActivityFeedItem[]> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -320,8 +325,8 @@ export class ActivityFeedService {
       fr.requester_id === user.id ? fr.addressee_id : fr.requester_id
     );
 
-    // Get activity feed from friends who have activity feed enabled
-    const { data: activities, error } = await supabase
+    // Build the initial query
+    let query = supabase
       .from("activity_feed")
       .select(
         `
@@ -334,8 +339,20 @@ export class ActivityFeedService {
       `
       )
       .in("user_id", friendIds)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false });
+
+    // Conditionally apply either a limit or a time-based filter
+    if ("limit" in options) {
+      query = query.limit(options.limit);
+    } else if ("timeframeInHours" in options) {
+      const fromDate = subHours(
+        new Date(),
+        options.timeframeInHours
+      ).toISOString();
+      query = query.gte("created_at", fromDate);
+    }
+
+    const { data: activities, error } = await query;
 
     if (error) {
       console.error("Error fetching activity feed:", error);

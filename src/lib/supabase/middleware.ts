@@ -43,10 +43,7 @@ export async function updateSession(request: NextRequest) {
   // Define an array of public locations.
   const publicLocations: string[] = ["/", "/login", "/api/webhook"];
 
-  if (
-    !user &&
-    !publicLocations.some((path) => request.nextUrl.pathname.startsWith(path))
-  ) {
+  if (!user && !publicLocations.includes(request.nextUrl.pathname)) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/login";

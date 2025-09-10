@@ -5,6 +5,8 @@ import {
   ActivityFeedItem,
 } from "@/lib/activity-feed-service";
 import { createClient } from "@/lib/supabase/client";
+import { useProStatus } from "./useProStatus"; // Import the useProStatus hook
+import { User } from "@supabase/supabase-js";
 
 const activityFeedService = new ActivityFeedService();
 const supabase = createClient();
@@ -14,7 +16,11 @@ interface ActivityFeedState {
   isDisabled: boolean;
 }
 
-const fetcher = async (): Promise<ActivityFeedState> => {
+// The fetcher function is updated to accept the `isPro` status from the SWR key.
+const fetcher = async ([_key, isPro]: [
+  string,
+  boolean
+]): Promise<ActivityFeedState> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -36,14 +42,30 @@ const fetcher = async (): Promise<ActivityFeedState> => {
     return { activities: [], isDisabled: true };
   }
 
-  // Otherwise, fetch the friend activity feed as normal
-  const activities = await activityFeedService.getFriendActivityFeed(20);
+  // Fetch friend activity based on the user's pro status
+  const activities = isPro
+    ? await activityFeedService.getFriendActivityFeed({ timeframeInHours: 48 })
+    : await activityFeedService.getFriendActivityFeed({ limit: 2 });
+
   return { activities, isDisabled: false };
 };
 
 export function useActivityFeed() {
+  // Get the current user to determine their pro status
+  const { data: user, isLoading: isUserLoading } = useSWR<User | null>(
+    "auth-user",
+    async () => {
+      const { data } = await supabase.auth.getUser();
+      return data.user;
+    }
+  );
+
+  const { isPro, isLoading: isProLoading } = useProStatus(user || null);
+
+  // The SWR key is now an array containing the `isPro` status.
+  // SWR will re-fetch if this key changes. Fetching is disabled until the user is available.
   const { data, error, isLoading, mutate } = useSWR<ActivityFeedState>(
-    "activity-feed",
+    user ? ["activity-feed", isPro] : null,
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds
@@ -56,10 +78,12 @@ export function useActivityFeed() {
     mutate();
   };
 
+  const combinedLoading = isLoading || isUserLoading || isProLoading;
+
   return {
     activities: data?.activities || [],
-    isDisabled: data?.isDisabled ?? isLoading, // Return true if disabled or still loading
-    loading: isLoading,
+    isDisabled: data?.isDisabled ?? combinedLoading, // Return true if disabled or still loading
+    loading: combinedLoading,
     error: error?.message || null,
     refreshFeed,
   };
