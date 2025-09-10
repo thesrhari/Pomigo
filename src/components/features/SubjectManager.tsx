@@ -27,6 +27,7 @@ import { toast } from "react-toastify";
 import { PostgrestError, User } from "@supabase/supabase-js";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { PricingModal } from "../PricingModal";
+import { useUser } from "@/lib/hooks/useUser";
 
 const supabase = createClient();
 
@@ -70,20 +71,8 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
-
-  // Fetch user and check pro status
-  const [user, setUser] = useState<User | null>(null);
-  useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    fetchUser();
-  }, []);
-
-  const { isPro, isLoading: isProLoading } = useProStatus(user);
+  const { user } = useUser();
+  const { isPro, isLoading: isProLoading } = useProStatus(user || null);
   const freeUserSubjectLimit = 3;
   const isLimitReached = !isPro && subjects.length >= freeUserSubjectLimit + 1; // Don't count Uncategorized
 

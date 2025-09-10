@@ -312,7 +312,7 @@ export class ActivityFeedService {
     } = await supabase.auth.getUser();
     if (!user) return [];
 
-    // Get friend IDs
+    // Get friend IDs (same as before)
     const { data: friendRelationships } = await supabase
       .from("friend_relationships")
       .select("requester_id, addressee_id")
@@ -325,7 +325,66 @@ export class ActivityFeedService {
       fr.requester_id === user.id ? fr.addressee_id : fr.requester_id
     );
 
-    // Build the initial query
+    // If the user is on a FREE plan, just fetch the last 20.
+    if ("limit" in options) {
+      const { data: activities, error } = await this.fetchActivities(
+        friendIds,
+        { limit: options.limit }
+      );
+      if (error) {
+        console.error("Error fetching activity feed:", error);
+        return [];
+      }
+      return this.filterAndFormatActivities(activities);
+    }
+
+    // --- START: NEW HYBRID LOGIC FOR PRO USERS ---
+    if ("timeframeInHours" in options) {
+      // First, try to fetch activities from the last 48 hours.
+      const fromDate = subHours(
+        new Date(),
+        options.timeframeInHours
+      ).toISOString();
+
+      const { data: recentActivities, error: recentError } =
+        await this.fetchActivities(friendIds, { fromDate });
+
+      if (recentError) {
+        console.error("Error fetching recent activity feed:", recentError);
+        return [];
+      }
+
+      // If there are enough recent activities (e.g., 20 or more), return them.
+      if (recentActivities && recentActivities.length >= 20) {
+        return this.filterAndFormatActivities(recentActivities);
+      }
+
+      // Otherwise, fetch the last 20 activities to ensure the feed isn't empty.
+      // This acts as a fallback.
+      const { data: latestActivities, error: latestError } =
+        await this.fetchActivities(friendIds, { limit: 20 });
+
+      if (latestError) {
+        console.error("Error fetching latest activity feed:", latestError);
+        return [];
+      }
+
+      // We can decide to merge them, but for simplicity, returning the latest 20 is a solid fallback.
+      // If you merge, you'd need to handle duplicates.
+      // For this implementation, we will prioritize showing *something* over showing recent but sparse activity.
+      // If recentActivities has 5 items, and latestActivities has 20, the 20 are more valuable.
+      return this.filterAndFormatActivities(latestActivities);
+    }
+    // --- END: NEW HYBRID LOGIC FOR PRO USERS ---
+
+    return []; // Should not be reached
+  }
+
+  // Helper function to build and execute the query
+  private async fetchActivities(
+    friendIds: string[],
+    options: { limit?: number; fromDate?: string }
+  ) {
     let query = supabase
       .from("activity_feed")
       .select(
@@ -341,26 +400,22 @@ export class ActivityFeedService {
       .in("user_id", friendIds)
       .order("created_at", { ascending: false });
 
-    // Conditionally apply either a limit or a time-based filter
-    if ("limit" in options) {
+    if (options.limit) {
       query = query.limit(options.limit);
-    } else if ("timeframeInHours" in options) {
-      const fromDate = subHours(
-        new Date(),
-        options.timeframeInHours
-      ).toISOString();
-      query = query.gte("created_at", fromDate);
+    } else if (options.fromDate) {
+      query = query.gte("created_at", options.fromDate);
     }
 
-    const { data: activities, error } = await query;
+    return await query;
+  }
 
-    if (error) {
-      console.error("Error fetching activity feed:", error);
-      return [];
-    }
+  // Helper function to process the results
+  private filterAndFormatActivities(
+    activities: any[] | null
+  ): ActivityFeedItem[] {
+    if (!activities) return [];
 
-    // Filter out activities from users who have disabled activity feed
-    return (activities || [])
+    return activities
       .filter((activity) => activity.user?.activity_feed_enabled)
       .map((activity) => ({
         ...activity,

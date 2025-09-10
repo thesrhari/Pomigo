@@ -44,8 +44,8 @@ const fetcher = async ([_key, isPro]: [
 
   // Fetch friend activity based on the user's pro status
   const activities = isPro
-    ? await activityFeedService.getFriendActivityFeed({ timeframeInHours: 48 })
-    : await activityFeedService.getFriendActivityFeed({ limit: 2 });
+    ? await activityFeedService.getFriendActivityFeed({ timeframeInHours: 168 })
+    : await activityFeedService.getFriendActivityFeed({ limit: 20 });
 
   return { activities, isDisabled: false };
 };

@@ -1,6 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import { useActivityFeed } from "@/lib/hooks/useActivityFeed";
+import { useProStatus } from "@/lib/hooks/useProStatus";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import {
   Users,
   Clock,
@@ -10,9 +25,13 @@ import {
   Trophy,
   Activity,
   UserPlus,
-  EyeOff, // Import new icon
+  EyeOff,
+  ExternalLink,
+  Crown,
+  HelpCircle,
 } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
+import { useUser } from "@/lib/hooks/useUser";
 
 // Using a simple time formatting function instead of date-fns
 const formatTimeAgo = (dateString: string): string => {
@@ -160,9 +179,107 @@ function LoadingState() {
   );
 }
 
+// New component for the full activity modal
+function ActivityModal({
+  activities,
+  loading,
+  error,
+  isDisabled,
+  friendCount,
+  isPro,
+  isProLoading,
+}: {
+  activities: ActivityItem[];
+  loading: boolean;
+  error: boolean;
+  isDisabled: boolean;
+  friendCount: number;
+  isPro: boolean;
+  isProLoading: boolean;
+}) {
+  const renderContent = () => {
+    if (loading) {
+      return <LoadingState />;
+    }
+    if (error) {
+      return (
+        <div className="text-sm text-destructive p-3 bg-destructive/10 rounded-lg">
+          Failed to load activity feed. Please try again.
+        </div>
+      );
+    }
+    if (isDisabled) {
+      return <DisabledState />;
+    }
+    if (activities.length === 0) {
+      return <EmptyState friendCount={friendCount} />;
+    }
+    return (
+      <div className="space-y-3">
+        {activities.map((activity: ActivityItem) => (
+          <ActivityFeedItem key={activity.id} activity={activity} />
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+      <DialogHeader>
+        <DialogTitle className="flex items-center space-x-2">
+          <Activity className="w-5 h-5" />
+          <span>Friend Activity</span>
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="flex-1 overflow-y-auto pr-2 -mr-2">{renderContent()}</div>
+
+      {/* --- MODIFIED UPSELL SECTION --- */}
+      {!isProLoading && !isPro && !loading && !isDisabled && (
+        <div className="border-t border-border pt-4 mt-4">
+          <TooltipProvider delayDuration={100}>
+            <div className="flex items-center justify-between gap-2 text-xs bg-muted/30 p-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                <span className="font-medium text-foreground">
+                  Upgrade to Pro to see more of your friends&apos; activity
+                </span>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* The user hovers over this icon */}
+                  <HelpCircle className="w-4 h-4 text-muted-foreground cursor-pointer" />
+                </TooltipTrigger>
+                <TooltipContent side="top" align="end" className="max-w-xs p-3">
+                  <div className="text-left space-y-2">
+                    <p>
+                      <strong>Pro Plan:</strong> You get a full 7-day activity
+                      history. If there are fewer than 20 activities in that
+                      time, we show you the 20 most recent ones to ensure your
+                      feed is never empty.
+                    </p>
+                    <p>
+                      <strong>Free Plan:</strong> You see the 20 most recent
+                      activities.
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>
+      )}
+      {/* --- END OF MODIFICATION --- */}
+    </DialogContent>
+  );
+}
+
 export const FriendsActivity = () => {
   const { activities, loading, error, isDisabled } = useActivityFeed();
   const { friends } = useFriends();
+  const { user } = useUser();
+  const { isPro, isLoading: isProLoading } = useProStatus(user || null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const renderContent = () => {
     if (loading) {
@@ -183,33 +300,66 @@ export const FriendsActivity = () => {
     }
     return (
       <div className="space-y-3 max-h-96 overflow-y-auto">
-        {activities.map((activity: ActivityItem) => (
+        {activities.slice(0, 3).map((activity: ActivityItem) => (
           <ActivityFeedItem key={activity.id} activity={activity} />
         ))}
       </div>
     );
   };
 
+  const hasActivities =
+    !loading && !error && !isDisabled && activities.length > 0;
+
   return (
-    <Card className="border-border bg-card h-fit">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="flex items-center space-x-2 text-card-foreground">
-          <Activity className="w-5 h-5" />
-          <span>Friend Activity</span>
-        </CardTitle>
-      </CardHeader>
+    <>
+      <Card className="border-border bg-card h-fit">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle className="flex items-center space-x-2 text-card-foreground">
+            <Activity className="w-5 h-5" />
+            <span>Friend Activity</span>
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent className="pt-0">
-        {renderContent()}
+        <CardContent className="pt-0">
+          {renderContent()}
 
-        {!loading && !isDisabled && activities.length > 0 && (
-          <div className="text-center mt-4 pt-3 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              Showing recent friend activities
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          {hasActivities && (
+            <div className="text-center mt-4 pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-3">
+                Showing recent friend activities
+              </p>
+            </div>
+          )}
+
+          {/* Show button for all states except loading */}
+          {!loading && (
+            <div className="mt-4">
+              <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={isDisabled}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    View All Activity
+                  </Button>
+                </DialogTrigger>
+                <ActivityModal
+                  activities={activities}
+                  loading={loading}
+                  error={error}
+                  isDisabled={isDisabled}
+                  friendCount={friends.length}
+                  isPro={isPro}
+                  isProLoading={isProLoading}
+                />
+              </Dialog>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 };
