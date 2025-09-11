@@ -6,7 +6,7 @@
 :root {
   --background: hsl(0 0% 99.2157%);
   --foreground: hsl(0 0% 0%);
-  --card: hsl(0, 0%, 95%);
+  --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(0 0% 0%);
   --popover: hsl(0 0% 98.8235%);
   --popover-foreground: hsl(0 0% 0%);
@@ -124,7 +124,7 @@
 .doom {
   --background: hsl(0 0% 80%);
   --foreground: hsl(0 0% 12.1569%);
-  --card: hsl(0 0% 69.0196%);
+  --card: hsl(0 0% 80%);
   --card-foreground: hsl(0 0% 12.1569%);
   --popover: hsl(0 0% 69.0196%);
   --popover-foreground: hsl(0 0% 12.1569%);
@@ -183,7 +183,7 @@
 .cozy {
   --background: hsl(35, 85%, 96%);
   --foreground: hsl(25, 15%, 40%);
-  --card: hsl(0, 0%, 100%);
+  --card: hsl(0, 0%, 99%);
   --card-foreground: hsl(25, 15%, 40%);
   --popover: hsl(0, 0%, 100%);
   --popover-foreground: hsl(25, 15%, 40%);
