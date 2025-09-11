@@ -28,7 +28,7 @@ export default function PreviewIndicator() {
           <div>
             <p className="font-semibold text-base leading-none">Preview Mode</p>
             <p className="text-sm text-muted-foreground">
-              Viewing "{previewTheme}"
+              Viewing &quot;{previewTheme}&quot;
             </p>
           </div>
         </div>

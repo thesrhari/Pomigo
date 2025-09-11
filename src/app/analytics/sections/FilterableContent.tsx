@@ -56,7 +56,7 @@ export const FilterableContent = ({
     }
 
     if (isPro) {
-      let newFilter = { ...filter };
+      const newFilter = { ...filter };
       let needsUpdate = false;
 
       // If the current filter is a "free" type, convert it to the "pro" equivalent.

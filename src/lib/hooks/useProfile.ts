@@ -70,7 +70,7 @@ export function useProfile() {
     data: stats,
     loading: statsLoading,
     error: statsError,
-  } = useAnalyticsData("all-time", new Date().getFullYear());
+  } = useAnalyticsData({ type: "all-time" }, new Date().getFullYear());
 
   // The overall loading state depends on fetching the initial profile and stats.
   const loading = profileLoading || statsLoading;
@@ -173,7 +173,7 @@ export function useProfile() {
       } else {
         throw new Error("Failed to get public URL for uploaded file");
       }
-    } catch (error: any) {
+    } catch (_: any) {
       toast.error("Avatar Upload Failed. Please try again later.");
     } finally {
       setUploading(false);

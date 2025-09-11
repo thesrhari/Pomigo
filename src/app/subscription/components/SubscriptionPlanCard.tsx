@@ -49,7 +49,6 @@ export const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
     ? formatDate(subscription.end_date)
     : null;
   const amount = subscription?.amount;
-  const currency = subscription?.currency || "USD";
 
   return (
     <Card>

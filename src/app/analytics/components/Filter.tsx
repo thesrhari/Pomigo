@@ -1,7 +1,7 @@
 // components/Filter.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Filter } from "lucide-react";
 import { DateFilter } from "@/lib/hooks/useAnalyticsData";
