@@ -121,7 +121,7 @@ export const PricingModal = ({ isOpen, onClose }: PricingModalProps) => {
             Choose your plan
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Upgrade anytime. Cancel whenever.
+            Upgrade now. Cancel anytime.
           </p>
         </DialogHeader>
 

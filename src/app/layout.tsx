@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import NavBarProvider from "@/components/navbar/NavBarProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PreviewProvider } from "@/components/PreviewProvider";
+import PreviewIndicator from "@/components/PreviewIndicator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,11 +21,14 @@ export default function RootLayout({
 }) {
   return (
     <ThemeProvider>
-      <html lang="en">
-        <body className={inter.className}>
-          <NavBarProvider>{children}</NavBarProvider>
-        </body>
-      </html>
+      <PreviewProvider>
+        <html lang="en">
+          <body className={inter.className}>
+            <NavBarProvider>{children}</NavBarProvider>
+            <PreviewIndicator />
+          </body>
+        </html>
+      </PreviewProvider>
     </ThemeProvider>
   );
 }

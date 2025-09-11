@@ -23,7 +23,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client"; // Assuming this path is correct in your project
 import { User } from "@supabase/supabase-js"; // For type safety
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 // --- TYPE DEFINITIONS ---
 
@@ -217,7 +216,6 @@ const Header: FC = () => {
             <Button onClick={handleSignOut} variant="ghost">
               Sign Out
             </Button>
-            <ThemeToggle />
           </div>
         ) : (
           <div className="hidden items-center gap-3 md:flex">
@@ -227,7 +225,6 @@ const Header: FC = () => {
             <Link href="/login">
               <Button>Get Started Free</Button>
             </Link>
-            <ThemeToggle />
           </div>
         )}
 
@@ -280,9 +277,6 @@ const Header: FC = () => {
                       </Link>
                     </>
                   )}
-                </div>
-                <div className="flex justify-center pt-2">
-                  <ThemeToggle />
                 </div>
               </div>
             </DropdownMenuContent>

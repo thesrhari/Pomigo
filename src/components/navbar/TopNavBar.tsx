@@ -1,7 +1,6 @@
 "use client";
 
-import { Timer } from "lucide-react";
-import { ThemeToggle } from "../ThemeToggle";
+import { Timer, BrushCleaning, Paintbrush } from "lucide-react";
 import { useProfile } from "@/lib/hooks/useProfile";
 import {
   DropdownMenu,
@@ -12,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
@@ -33,8 +33,14 @@ export const TopNavBar: React.FC = () => {
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
-          {/* Theme toggle */}
-          <ThemeToggle />
+          {/* Theme selector button */}
+          <Link href="/customize">
+            <Button variant="outline" size="sm" className="p-2 cursor-pointer">
+              <Paintbrush className="w-4 h-4" /> Customize
+              <span className="sr-only">Theme selector</span>
+            </Button>
+          </Link>
+
           {/* Profile Dropdown */}
           {loading ? (
             <Skeleton className="h-8 w-8 rounded-full" />
