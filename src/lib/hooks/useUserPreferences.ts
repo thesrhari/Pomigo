@@ -10,7 +10,15 @@ export type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 
 // Constants for Pro features and defaults
 const proStyles: TimerStyle[] = ["ring", "progress-bar"];
-const proThemes: Theme[] = ["doom", "cozy", "nature", "cyberpunk", "amethyst"];
+const proThemes: Theme[] = [
+  "ocean",
+  "doom",
+  "cozy",
+  "nature",
+  "cyberpunk",
+  "amethyst",
+  "grove",
+];
 const defaultStyle: TimerStyle = "digital";
 const defaultTheme: Theme = "light";
 

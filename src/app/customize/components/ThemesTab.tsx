@@ -56,6 +56,18 @@ const themeOptions: ThemeOption[] = [
     },
   },
   {
+    id: "ocean",
+    name: "Ocean",
+    description: "Light refreshing theme with coastal blues",
+    isPro: false,
+    previewColors: {
+      background: "hsl(208 100% 97.0588%)",
+      primary: "hsl(142.0859 70.5628% 45.2941%)",
+      secondary: "hsl(204 93.75% 93.7255%)",
+      accent: "hsl(149.2683 80.3922% 90%)",
+    },
+  },
+  {
     id: "doom",
     name: "Doom",
     description: "Intense gaming-inspired dark theme",
@@ -113,6 +125,18 @@ const themeOptions: ThemeOption[] = [
       primary: "hsl(260.4 22.9358% 57.2549%)",
       secondary: "hsl(258.9474 33.3333% 88.8235%)",
       accent: "hsl(342.4615 56.5217% 77.451%)",
+    },
+  },
+  {
+    id: "grove",
+    name: "Grove",
+    description: "Moody dark with natural greens",
+    isPro: true,
+    previewColors: {
+      background: "hsl(0 0% 7.0588%)",
+      primary: "hsl(154.898 100% 19.2157%)",
+      secondary: "hsl(0 0% 14.1176%)",
+      accent: "hsl(0 0% 19.2157%)",
     },
   },
 ];

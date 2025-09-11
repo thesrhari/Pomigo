@@ -6,11 +6,13 @@ import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 type Theme =
   | "light"
   | "dark"
+  | "ocean"
   | "doom"
   | "cozy"
   | "nature"
   | "cyberpunk"
-  | "amethyst";
+  | "amethyst"
+  | "grove";
 
 type ThemeContextType = {
   theme: Theme;
@@ -31,11 +33,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const applyThemeToDOM = (t: Theme) => {
       const validThemes: Theme[] = [
         "dark",
+        "ocean",
         "doom",
         "cozy",
         "nature",
         "cyberpunk",
         "amethyst",
+        "grove",
       ];
       // Remove all possible theme classes first for a clean slate.
       document.documentElement.classList.remove(...validThemes);
