@@ -103,9 +103,13 @@ export default function ThemeSelectorPage() {
       <div className="px-4 lg:px-6 py-8">
         <div className="max-w-6xl mx-auto">
           <Tabs defaultValue="themes" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="themes">Themes</TabsTrigger>
-              <TabsTrigger value="timer-styles">Timer Styles</TabsTrigger>
+            <TabsList className="w-full justify-start rounded-lg bg-card-foreground/10 p-0 gap-2">
+              <TabsTrigger className="tabstrigger" value="themes">
+                Themes
+              </TabsTrigger>
+              <TabsTrigger className="tabstrigger" value="timer-styles">
+                Timer Styles
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="themes" className="mt-8">

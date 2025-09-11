@@ -137,12 +137,6 @@ export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
         <h2 className="text-xl font-semibold mb-2">Choose Your Theme</h2>
         <p className="text-muted-foreground">
           Personalize your Pomodoro experience with beautiful themes.
-          {!isPro && (
-            <span className="ml-1">
-              Upgrade to Pro to unlock all themes, or preview them for 30
-              seconds.
-            </span>
-          )}
         </p>
       </div>
 

@@ -83,12 +83,6 @@ export function TimerStylesTab({
         <h2 className="text-xl font-semibold mb-2">Choose Your Timer Style</h2>
         <p className="text-muted-foreground">
           Customize how your timer appears during focus sessions.
-          {!isPro && (
-            <span className="ml-1">
-              Upgrade to Pro to unlock all timer styles, or preview them to see
-              how they look.
-            </span>
-          )}
         </p>
       </div>
 
