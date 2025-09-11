@@ -59,7 +59,7 @@ const themeOptions: ThemeOption[] = [
     id: "ocean",
     name: "Ocean",
     description: "Light refreshing theme with coastal blues",
-    isPro: false,
+    isPro: true,
     previewColors: {
       background: "hsl(208 100% 97.0588%)",
       primary: "hsl(142.0859 70.5628% 45.2941%)",
