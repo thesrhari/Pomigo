@@ -2,12 +2,30 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw, SkipForward } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  DigitalTimer,
+  RingTimer,
+  ProgressBarTimer,
+  SplitFlapTimer,
+} from "@/components/TimerStyles";
 
 type SessionType = "study" | "short_break" | "long_break";
+type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 
 interface SessionStatus {
   type: SessionType;
   completed: boolean;
+}
+
+interface PomodoroSettings {
+  focusTime: number;
+  shortBreak: number;
+  longBreak: number;
+  longBreakEnabled: boolean;
+  longBreakInterval: number;
+  iterations: number;
+  soundEnabled: boolean;
+  selectedSoundId: number | null;
 }
 
 interface FullscreenTimerOverlayProps {
@@ -19,6 +37,8 @@ interface FullscreenTimerOverlayProps {
   sessionSequence: SessionStatus[];
   currentSessionIndex: number;
   timerRunning: boolean;
+  timerStyle?: TimerStyle;
+  pomodoroSettings: PomodoroSettings | null;
   onToggleTimer: () => void;
   onReset: () => void;
   onClose: () => void;
@@ -33,6 +53,8 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   sessionSequence,
   currentSessionIndex,
   timerRunning,
+  timerStyle = "digital", // Default to digital
+  pomodoroSettings,
   onToggleTimer,
   onReset,
   onClose,
@@ -43,12 +65,33 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hideCursorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+  // Calculate total time for progress-based timers
+  const getTotalTime = () => {
+    // Fallback to defaults if settings are not available
+    if (!pomodoroSettings) {
+      switch (sessionType) {
+        case "study":
+          return 25 * 60;
+        case "short_break":
+          return 5 * 60;
+        case "long_break":
+          return 15 * 60;
+        default:
+          return 25 * 60;
+      }
+    }
+
+    // Use user-defined settings
+    switch (sessionType) {
+      case "study":
+        return pomodoroSettings.focusTime * 60;
+      case "short_break":
+        return pomodoroSettings.shortBreak * 60;
+      case "long_break":
+        return pomodoroSettings.longBreak * 60;
+      default:
+        return pomodoroSettings.focusTime * 60;
+    }
   };
 
   // Get session-specific styling and content using only theme variables
@@ -59,9 +102,7 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
           bgClass: "bg-background",
           textClass: "text-foreground",
           title: "Focus",
-          subtitle: currentSubject
-            ? `Studying: ${currentSubject}`
-            : "Time to focus",
+          subtitle: currentSubject ? `${currentSubject}` : "Time to focus",
         };
       case "short_break":
         return {
@@ -88,6 +129,30 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
   };
 
   const sessionConfig = getSessionConfig();
+
+  // Render the appropriate timer component based on style
+  const renderTimerComponent = () => {
+    const totalTime = getTotalTime();
+    const timerProps = {
+      timeLeft,
+      totalTime,
+      sessionType,
+      currentSubject,
+      className: "px-4", // Add padding for mobile
+    };
+
+    switch (timerStyle) {
+      case "ring":
+        return <RingTimer {...timerProps} />;
+      case "progress-bar":
+        return <ProgressBarTimer {...timerProps} />;
+      case "split-flap":
+        return <SplitFlapTimer {...timerProps} />;
+      case "digital":
+      default:
+        return <DigitalTimer {...timerProps} />;
+    }
+  };
 
   // Dot indicator component for overlay
   const OverlaySessionIndicators = () => {
@@ -255,28 +320,9 @@ export const FullscreenTimerOverlay: React.FC<FullscreenTimerOverlayProps> = ({
           }}
         >
           {/* Main Timer Display */}
-          <div className="text-center space-y-8 select-none px-4">
+          <div className="w-full h-full flex flex-col items-center justify-center">
             <OverlaySessionIndicators />
-
-            {/* Timer */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
-              className={`text-8xl sm:text-9xl md:text-[10rem] lg:text-[12rem] font-bold ${sessionConfig.textClass} tracking-tight leading-none`}
-            >
-              {formatTime(timeLeft)}
-            </motion.div>
-
-            {/* Subtitle */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5, ease: "easeOut" }}
-              className={`text-base md:text-lg opacity-60 ${sessionConfig.textClass} max-w-md mx-auto`}
-            >
-              {sessionConfig.subtitle}
-            </motion.div>
+            {renderTimerComponent()}
           </div>
 
           {/* Controls */}

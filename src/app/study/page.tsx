@@ -18,6 +18,7 @@ import { usePomodoroData } from "@/lib/hooks/usePomodoroData";
 import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
+import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 
 const supabase = createClient();
 type SessionType = "study" | "short_break" | "long_break";
@@ -40,6 +41,7 @@ export default function PomodoroPage() {
     deleteSubject,
     updatePomodoroSettings,
   } = usePomodoroData();
+  const { timerStyle } = useUserPreferences();
   const { playSound } = useAudioNotifications();
   const [timerRunning, setTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -493,6 +495,8 @@ export default function PomodoroPage() {
           (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1)
         }
         timerRunning={timerRunning}
+        timerStyle={timerStyle}
+        pomodoroSettings={pomodoroSettings}
         onToggleTimer={handlePlayPause}
         onReset={handleReset}
         onClose={() => setFullscreenOverlayOpen(false)}

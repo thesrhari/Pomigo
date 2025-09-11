@@ -1,6 +1,6 @@
 "use client";
 
-import { Timer, BrushCleaning, Paintbrush } from "lucide-react";
+import { Timer, Paintbrush } from "lucide-react";
 import { useProfile } from "@/lib/hooks/useProfile";
 import {
   DropdownMenu,
