@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 import { usePreview } from "@/components/PreviewProvider";
 
@@ -25,8 +26,9 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, applyTheme: setTheme } = useUserPreferences();
   const { isPreviewMode, previewTheme } = usePreview();
+  const pathname = usePathname();
 
-  // Apply theme to DOM - respects preview mode
+  // Apply theme to DOM - respects preview mode and forces light theme on landing page
   useEffect(() => {
     const applyThemeToDOM = (t: Theme) => {
       const validThemes: Theme[] = [
@@ -49,13 +51,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Force light theme on landing page (root "/")
+    if (pathname === "/") {
+      applyThemeToDOM("light");
+      return;
+    }
+
     // Use preview theme if in preview mode, otherwise use regular theme
     const activeTheme = isPreviewMode && previewTheme ? previewTheme : theme;
     applyThemeToDOM(activeTheme);
-  }, [theme, isPreviewMode, previewTheme]);
+  }, [theme, isPreviewMode, previewTheme, pathname]);
+
+  // Return the actual theme (light) when on landing page, otherwise return the user's theme
+  const effectiveTheme = pathname === "/" ? "light" : theme;
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme: setTheme || (() => {}) }}>
+    <ThemeContext.Provider
+      value={{ theme: effectiveTheme, setTheme: setTheme || (() => {}) }}
+    >
       {children}
     </ThemeContext.Provider>
   );
