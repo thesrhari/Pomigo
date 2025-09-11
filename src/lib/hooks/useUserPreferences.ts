@@ -11,8 +11,7 @@ export type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 // Constants for Pro features and defaults
 const proStyles: TimerStyle[] = ["ring", "progress-bar"];
 const proThemes: Theme[] = [
-  "ocean",
-  "doom",
+  "doom", // Fixed: removed "ocean" as it's marked as free in ThemesTab
   "cozy",
   "nature",
   "cyberpunk",
@@ -25,7 +24,7 @@ const defaultTheme: Theme = "light";
 export function useUserPreferences() {
   const supabase = createClient();
   const { user } = useUser();
-  const { isPro } = useProStatus(user || null);
+  const { isPro, isLoading: isProStatusLoading } = useProStatus(user || null);
 
   // State for both preferences
   const [timerStyle, setTimerStyle] = useState<TimerStyle>(defaultStyle);
@@ -92,20 +91,47 @@ export function useUserPreferences() {
         const localStyle = localStorage.getItem(
           "timerStyle"
         ) as TimerStyle | null;
-        if (localStyle && proStyles.includes(localStyle)) {
-          setTimerStyle(defaultStyle);
-          localStorage.setItem("timerStyle", defaultStyle);
-        }
+        const validStyle =
+          localStyle && proStyles.includes(localStyle)
+            ? defaultStyle
+            : localStyle || defaultStyle;
+        setTimerStyle(validStyle);
+        localStorage.setItem("timerStyle", validStyle);
+
         const localTheme = localStorage.getItem("theme") as Theme | null;
-        if (localTheme && proThemes.includes(localTheme)) {
-          setTheme(defaultTheme);
-          localStorage.setItem("theme", defaultTheme);
-        }
+        const validTheme =
+          localTheme && proThemes.includes(localTheme)
+            ? defaultTheme
+            : localTheme || defaultTheme;
+        setTheme(validTheme);
+        localStorage.setItem("theme", validTheme);
+
         setIsLoading(false);
         return;
       }
 
-      // Case 2: User is logged in. Database is the source of truth.
+      // Case 2: User is logged in. Wait for Pro status to load before validation.
+      if (isProStatusLoading) {
+        // Still loading pro status, just load from DB/localStorage without validation
+        const { data: preference } = await supabase
+          .from("user_preferences")
+          .select("timer_style, theme")
+          .eq("user_id", user.id)
+          .single();
+
+        const dbStyle = (preference?.timer_style as TimerStyle) || defaultStyle;
+        const dbTheme = (preference?.theme as Theme) || defaultTheme;
+
+        setTimerStyle(dbStyle);
+        localStorage.setItem("timerStyle", dbStyle);
+        setTheme(dbTheme);
+        localStorage.setItem("theme", dbTheme);
+
+        setIsLoading(false);
+        return;
+      }
+
+      // Case 3: User is logged in and Pro status is loaded. Validate preferences.
       const { data: preference } = await supabase
         .from("user_preferences")
         .select("timer_style, theme")
@@ -142,7 +168,14 @@ export function useUserPreferences() {
     };
 
     syncAndValidate();
-  }, [isAuthReady, user, isPro, supabase, updatePreferencesInDb]);
+  }, [
+    isAuthReady,
+    user,
+    isPro,
+    isProStatusLoading,
+    supabase,
+    updatePreferencesInDb,
+  ]);
 
   // Function to apply a new timer style
   const applyTimerStyle = async (newStyle: TimerStyle) => {
@@ -175,6 +208,6 @@ export function useUserPreferences() {
     applyTimerStyle,
     theme,
     applyTheme,
-    isLoading,
+    isLoading: isLoading || isProStatusLoading, // Loading until both auth and pro status are ready
   };
 }

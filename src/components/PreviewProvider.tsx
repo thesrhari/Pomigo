@@ -48,8 +48,15 @@ export function PreviewProvider({ children }: { children: React.ReactNode }) {
       interval = setInterval(() => {
         setPreviewTimeLeft((prev) => {
           if (prev <= 1) {
-            // Don't call exitPreview directly to avoid recursion
-            handleTimeUp();
+            // Time's up - exit preview mode
+            setIsPreviewMode(false);
+            setPreviewTheme(null);
+
+            // Navigate back to customize if not already there
+            if (pathname !== "/customize") {
+              setPendingNavigation("/customize");
+            }
+
             return 0;
           }
           return prev - 1;
@@ -62,31 +69,13 @@ export function PreviewProvider({ children }: { children: React.ReactNode }) {
         clearInterval(interval);
       }
     };
-  }, [isPreviewMode, previewTimeLeft]);
-
-  const handleTimeUp = useCallback(() => {
-    setIsPreviewMode(false);
-    setPreviewTheme(null);
-    setPreviewTimeLeft(0);
-
-    // Restore the original theme
-    const savedTheme = (localStorage.getItem("theme") as Theme) || "light";
-    applyTheme(savedTheme);
-
-    // Navigate back to customize if not already there
-    if (pathname !== "/customize") {
-      setPendingNavigation("/customize");
-    }
-  }, [pathname]);
+  }, [isPreviewMode, previewTimeLeft, pathname]);
 
   const startPreview = useCallback(
     (theme: Theme) => {
       setIsPreviewMode(true);
       setPreviewTheme(theme);
       setPreviewTimeLeft(PREVIEW_DURATION);
-
-      // Apply the preview theme
-      applyTheme(theme);
 
       // Navigate to dashboard if not already there
       if (pathname !== "/dashboard") {
@@ -101,32 +90,11 @@ export function PreviewProvider({ children }: { children: React.ReactNode }) {
     setPreviewTheme(null);
     setPreviewTimeLeft(0);
 
-    // Restore the original theme
-    const savedTheme = (localStorage.getItem("theme") as Theme) || "light";
-    applyTheme(savedTheme);
-
     // Navigate back to customize if not already there
     if (pathname !== "/customize") {
       setPendingNavigation("/customize");
     }
   }, [pathname]);
-
-  const applyTheme = (theme: Theme) => {
-    // Remove all theme classes
-    document.documentElement.classList.remove(
-      "dark",
-      "doom",
-      "cozy",
-      "nature",
-      "cyberpunk",
-      "amethyst"
-    );
-
-    // Apply the selected theme class (light is the default, no class needed)
-    if (theme !== "light") {
-      document.documentElement.classList.add(theme);
-    }
-  };
 
   return (
     <PreviewContext.Provider

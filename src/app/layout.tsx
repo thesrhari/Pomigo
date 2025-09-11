@@ -20,15 +20,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ThemeProvider>
-      <PreviewProvider>
+    <PreviewProvider>
+      <ThemeProvider>
         <html lang="en">
           <body className={inter.className}>
             <NavBarProvider>{children}</NavBarProvider>
             <PreviewIndicator />
           </body>
         </html>
-      </PreviewProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </PreviewProvider>
   );
 }

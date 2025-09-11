@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect } from "react";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
+import { usePreview } from "@/components/PreviewProvider";
 
 type Theme =
   | "light"
@@ -22,13 +23,10 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // The useUserPreferences hook provides the theme state.
-  // It loads from local storage first, then validates with the DB.
-  // We alias `applyTheme` to `setTheme` for the context provider.
   const { theme, applyTheme: setTheme } = useUserPreferences();
+  const { isPreviewMode, previewTheme } = usePreview();
 
-  // This effect is now only responsible for the DOM side-effect of applying the theme class.
-  // It runs whenever the `theme` state changes, ensuring immediate application.
+  // Apply theme to DOM - respects preview mode
   useEffect(() => {
     const applyThemeToDOM = (t: Theme) => {
       const validThemes: Theme[] = [
@@ -41,6 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         "amethyst",
         "grove",
       ];
+
       // Remove all possible theme classes first for a clean slate.
       document.documentElement.classList.remove(...validThemes);
 
@@ -50,8 +49,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    applyThemeToDOM(theme);
-  }, [theme]); // This effect now only depends on `theme`.
+    // Use preview theme if in preview mode, otherwise use regular theme
+    const activeTheme = isPreviewMode && previewTheme ? previewTheme : theme;
+    applyThemeToDOM(activeTheme);
+  }, [theme, isPreviewMode, previewTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme: setTheme || (() => {}) }}>
