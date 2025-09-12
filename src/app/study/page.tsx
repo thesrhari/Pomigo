@@ -155,7 +155,10 @@ export default function PomodoroPage() {
         case "sessionEnd":
           console.log("Session ended, playing sound...");
           if (pomodoroSettings) {
-            playSound(pomodoroSettings.soundEnabled);
+            playSound(
+              pomodoroSettings.selectedSoundId,
+              pomodoroSettings.soundEnabled
+            );
           }
           setTimerRunning(false);
           setFullscreenOverlayOpen(false);

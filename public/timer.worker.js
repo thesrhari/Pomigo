@@ -1,213 +1,65 @@
+// A simpler, more robust timer worker
 let timerId = null;
 let timeLeft = 0;
-let startTime = null;
-let expectedDuration = 0;
-let highResTimerId = null;
-let broadcastChannel = null;
+let isRunning = false;
 
-try {
-  if (typeof BroadcastChannel !== "undefined") {
-    broadcastChannel = new BroadcastChannel("pomodoro-timer");
-  }
-} catch (err) {
-  console.warn("BroadcastChannel not available");
-}
-
-function startHighResTimer() {
-  if (highResTimerId) {
-    clearTimeout(highResTimerId);
-  }
-
-  const tick = () => {
-    if (timeLeft <= 0) return;
-
-    const now = Date.now();
-    const elapsedSeconds = Math.floor((now - startTime) / 1000);
-    const calculatedTimeLeft = Math.max(0, expectedDuration - elapsedSeconds);
-
-    timeLeft = calculatedTimeLeft;
-
-    if (timeLeft > 0) {
-      self.postMessage({ type: "tick", timeLeft: timeLeft });
-
-      if (broadcastChannel) {
-        try {
-          broadcastChannel.postMessage({
-            type: "timer-update",
-            timeLeft: timeLeft,
-            timestamp: now,
-          });
-        } catch (err) {
-          console.warn("BroadcastChannel error:", err);
-        }
-      }
-
-      const delay = 900 + Math.random() * 200;
-      highResTimerId = setTimeout(tick, delay);
-    } else {
-      self.postMessage({ type: "sessionEnd" });
-
-      if (broadcastChannel) {
-        try {
-          broadcastChannel.postMessage({
-            type: "session-end",
-            timestamp: Date.now(),
-          });
-        } catch (err) {
-          console.warn("BroadcastChannel error:", err);
-        }
-      }
-
-      cleanup();
-    }
-  };
-
-  tick();
-}
-
-function cleanup() {
+/**
+ * Stops the interval timer but preserves the timeLeft value.
+ * This effectively "pauses" the timer.
+ */
+function pauseTimer() {
   if (timerId) {
     clearInterval(timerId);
     timerId = null;
   }
-  if (highResTimerId) {
-    clearTimeout(highResTimerId);
-    highResTimerId = null;
-  }
-  startTime = null;
-  expectedDuration = 0;
+  isRunning = false;
 }
 
-self.addEventListener("message", function (e) {
-  if (e.data.type === "visibility-change") {
-    if (timeLeft > 0 && startTime) {
-      const now = Date.now();
-      const elapsedSeconds = Math.floor((now - startTime) / 1000);
-      timeLeft = Math.max(0, expectedDuration - elapsedSeconds);
-
-      self.postMessage({ type: "tick", timeLeft: timeLeft });
-
-      if (timeLeft === 0) {
-        self.postMessage({ type: "sessionEnd" });
-        cleanup();
-      }
-    }
-  }
-});
-
+// Main message handler from the browser's main thread
 self.onmessage = function (e) {
   const { command, duration } = e.data;
 
   switch (command) {
     case "start":
-      cleanup();
+      // If a timer is already running, clear it before starting a new one.
+      if (timerId) {
+        clearInterval(timerId);
+      }
 
+      // Set the time from the duration sent by the main thread.
+      // This works for both starting a new timer and resuming a paused one,
+      // as the component sends the remaining time.
       timeLeft = duration;
-      expectedDuration = duration;
-      startTime = Date.now();
+      isRunning = true;
 
       timerId = setInterval(() => {
-        const now = Date.now();
-        const elapsedSeconds = Math.floor((now - startTime) / 1000);
-        const calculatedTimeLeft = Math.max(
-          0,
-          expectedDuration - elapsedSeconds
-        );
-
-        const decrementedTime = timeLeft - 1;
-        timeLeft = Math.min(decrementedTime, calculatedTimeLeft);
-
-        if (timeLeft > 0) {
-          self.postMessage({ type: "tick", timeLeft: timeLeft });
-        } else {
+        if (timeLeft <= 0) {
+          // Timer finished. Clean up and notify the main thread.
+          pauseTimer();
           self.postMessage({ type: "sessionEnd" });
-          cleanup();
+          return;
         }
+
+        // Decrement time and send a tick update
+        timeLeft--;
+        self.postMessage({ type: "tick", timeLeft: timeLeft });
       }, 1000);
-
-      startHighResTimer();
-
-      if (broadcastChannel) {
-        try {
-          broadcastChannel.postMessage({
-            type: "timer-start",
-            duration: duration,
-            startTime: startTime,
-          });
-        } catch (err) {
-          console.warn("BroadcastChannel error:", err);
-        }
-      }
       break;
 
     case "stop":
-      cleanup();
-
-      if (broadcastChannel) {
-        try {
-          broadcastChannel.postMessage({
-            type: "timer-stop",
-            timestamp: Date.now(),
-          });
-        } catch (err) {
-          console.warn("BroadcastChannel error:", err);
-        }
-      }
+      // This command now correctly functions as a "pause".
+      // It stops the timer but does NOT reset timeLeft.
+      pauseTimer();
       break;
 
     case "sync":
-      if (startTime && timeLeft > 0) {
-        const now = Date.now();
-        const elapsedSeconds = Math.floor((now - startTime) / 1000);
-        const calculatedTimeLeft = Math.max(
-          0,
-          expectedDuration - elapsedSeconds
-        );
-        timeLeft = calculatedTimeLeft;
-
-        self.postMessage({
-          type: "sync-response",
-          timeLeft: timeLeft,
-          isRunning: timerId !== null,
-        });
-      } else {
-        self.postMessage({
-          type: "sync-response",
-          timeLeft: 0,
-          isRunning: false,
-        });
-      }
+      // When asked for an update, report the current state.
+      // Since timeLeft is preserved on pause, this will be accurate.
+      self.postMessage({
+        type: "sync-response",
+        timeLeft: timeLeft,
+        isRunning: isRunning,
+      });
       break;
   }
 };
-
-if (broadcastChannel) {
-  broadcastChannel.onmessage = function (e) {
-    const { type, timeLeft: syncTimeLeft, timestamp } = e.data;
-
-    if (type === "timer-update" && syncTimeLeft !== undefined) {
-      const now = Date.now();
-      const timeDiff = Math.abs(now - timestamp);
-
-      if (timeDiff < 2000 && Math.abs(timeLeft - syncTimeLeft) > 1) {
-        timeLeft = syncTimeLeft;
-        self.postMessage({ type: "tick", timeLeft: timeLeft });
-      }
-    }
-
-    if (type === "session-end") {
-      self.postMessage({ type: "sessionEnd" });
-      cleanup();
-    }
-  };
-}
-
-let heartbeatInterval = setInterval(() => {
-  self.postMessage({
-    type: "heartbeat",
-    timestamp: Date.now(),
-    isActive: timerId !== null,
-  });
-}, 5000);
-
-self.addEventListener("beforeunload", cleanup);

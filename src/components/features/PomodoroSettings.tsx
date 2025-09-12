@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -66,21 +66,21 @@ const NumberInput: React.FC<NumberInputProps> = ({
     setInputValue(value.toString());
   }, [value]);
 
-  const handleDecrement = () => {
+  const handleDecrement = useCallback(() => {
     const newValue = Math.max(min, value - step);
     onChange(newValue);
-  };
+  }, [min, value, step, onChange]);
 
-  const handleIncrement = () => {
+  const handleIncrement = useCallback(() => {
     const newValue = Math.min(max, value + step);
     onChange(newValue);
-  };
+  }, [max, value, step, onChange]);
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
-  };
+  }, []);
 
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
     const parsedValue = parseInt(inputValue, 10);
     if (!isNaN(parsedValue)) {
       const clampedValue = Math.max(min, Math.min(max, parsedValue));
@@ -90,7 +90,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
       // If input is not a valid number, revert to the original value
       setInputValue(value.toString());
     }
-  };
+  }, [inputValue, min, max, value, onChange]);
 
   return (
     <div className="space-y-3">
@@ -106,6 +106,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
             className="h-9 w-9 shrink-0 rounded-full"
             onClick={handleDecrement}
             disabled={disabled || value <= min}
+            aria-label={`Decrease ${label.toLowerCase()}`}
           >
             <Minus className="h-4 w-4" />
           </Button>
@@ -121,6 +122,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
               max={max}
               step={step}
               className="text-center w-full [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              aria-label={label}
             />
           </div>
           <Button
@@ -130,6 +132,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
             className="h-9 w-9 shrink-0 rounded-full"
             onClick={handleIncrement}
             disabled={disabled || value >= max}
+            aria-label={`Increase ${label.toLowerCase()}`}
           >
             <Plus className="h-4 w-4" />
           </Button>
@@ -160,9 +163,12 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Reset local settings when dialog opens or settings change
   useEffect(() => {
-    setLocalSettings(settings);
-    setHasChanges(false); // Reset changes when the dialog is opened or settings prop changes
+    if (isOpen) {
+      setLocalSettings(settings);
+      setHasChanges(false);
+    }
   }, [settings, isOpen]);
 
   // Effect to check for changes between localSettings and the original settings
@@ -175,41 +181,68 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
     detectChanges();
   }, [localSettings, settings]);
 
-  const handleSave = async () => {
-    if (!hasChanges) return; // Do nothing if there are no changes
+  const handleSave = useCallback(async () => {
+    if (!hasChanges) {
+      onClose();
+      return;
+    }
+
     setIsLoading(true);
     try {
       await updateSettings(localSettings);
       onClose();
       toast.success("Settings saved successfully.");
-      setHasChanges(false); // Reset changes after saving
+      setHasChanges(false);
     } catch (err) {
       console.error("Error saving settings:", err);
       toast.error("Failed to save settings. Please try again.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [hasChanges, localSettings, updateSettings, onClose]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setLocalSettings(settings);
-    setHasChanges(false); // Reset changes on cancel
+    setHasChanges(false);
     onClose();
-  };
+  }, [settings, onClose]);
 
-  const updateLocalSetting = <K extends keyof PomodoroSettingsType>(
-    key: K,
-    value: PomodoroSettingsType[K]
-  ) => {
-    setLocalSettings((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
+  const handleDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleCancel();
+      }
+    },
+    [handleCancel]
+  );
+
+  const updateLocalSetting = useCallback(
+    <K extends keyof PomodoroSettingsType>(
+      key: K,
+      value: PomodoroSettingsType[K]
+    ) => {
+      setLocalSettings((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
+    },
+    []
+  );
+
+  // Prevent form submission on Enter key
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+      e.preventDefault();
+      (e.target as HTMLInputElement).blur();
+    }
+  }, []);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-6"
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader>
           <DialogTitle>Pomodoro Settings</DialogTitle>
           <DialogDescription>
@@ -334,11 +367,16 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
         </div>
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+            type="button"
+          >
             Cancel
           </Button>
           <Button
-            type="submit"
+            type="button"
             onClick={handleSave}
             className="cursor-pointer"
             disabled={isLoading || !hasChanges}
