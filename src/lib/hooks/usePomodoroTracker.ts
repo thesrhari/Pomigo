@@ -5,6 +5,7 @@ import { ActivityFeedService } from "@/lib/activity-feed-service";
 import { useUser } from "@/lib/hooks/useUser";
 import { useQueryClient } from "@tanstack/react-query";
 import { RawSession } from "@/lib/hooks/useAnalyticsData";
+import { User } from "@supabase/supabase-js";
 
 type SessionType = "study" | "short_break" | "long_break";
 
@@ -22,6 +23,7 @@ const supabase = createClient();
 const activityFeedService = new ActivityFeedService();
 
 async function addCompletedSession(
+  user: User,
   userId: string,
   sessionType: SessionType,
   duration: number,
@@ -44,7 +46,7 @@ async function addCompletedSession(
 
   // Process activity feed
   try {
-    await activityFeedService.processSessionActivity(sessionData);
+    await activityFeedService.processSessionActivity(user, sessionData);
   } catch (err) {
     console.error("Error processing activity feed:", err);
     // Don't throw here - we don't want to break session logging if activity feed fails
@@ -89,6 +91,7 @@ export function usePomodoroTracker({
         }
 
         const newSession = await addCompletedSession(
+          user,
           user.id,
           completedSessionType,
           sessionDuration,
