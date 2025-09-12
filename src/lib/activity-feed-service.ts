@@ -1,6 +1,7 @@
 // lib/activity-feed-service.ts
 import { createClient } from "@/lib/supabase/client";
 import { format, startOfDay, subHours, subDays } from "date-fns";
+import { User } from "@supabase/supabase-js";
 
 const supabase = createClient();
 
@@ -59,10 +60,10 @@ export class ActivityFeedService {
   }
 
   // Check and create activity based on session completion
-  async processSessionActivity(sessionData: SessionData): Promise<void> {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  async processSessionActivity(
+    user: User | null | undefined,
+    sessionData: SessionData
+  ): Promise<void> {
     if (!user) return;
 
     // Check if user has activity feed enabled
@@ -293,11 +294,9 @@ export class ActivityFeedService {
 
   // Fetch activity feed for user's friends with conditional logic
   async getFriendActivityFeed(
+    user: User | null | undefined,
     options: GetFeedOptions
   ): Promise<ActivityFeedItem[]> {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return [];
 
     // Get friend IDs (same as before)

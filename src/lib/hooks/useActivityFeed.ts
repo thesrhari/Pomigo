@@ -6,6 +6,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useProStatus } from "./useProStatus";
 import { useUser } from "./useUser";
+import { User } from "@supabase/supabase-js";
 
 const activityFeedService = new ActivityFeedService();
 const supabase = createClient();
@@ -17,7 +18,8 @@ interface ActivityFeedState {
 
 const fetchActivityFeed = async (
   isPro: boolean,
-  userId: string | undefined
+  userId: string | undefined,
+  user: User | null
 ): Promise<ActivityFeedState> => {
   if (!userId) {
     return { activities: [], isDisabled: true };
@@ -34,20 +36,22 @@ const fetchActivityFeed = async (
   }
 
   const activities = isPro
-    ? await activityFeedService.getFriendActivityFeed({ timeframeInHours: 168 })
-    : await activityFeedService.getFriendActivityFeed({ limit: 20 });
+    ? await activityFeedService.getFriendActivityFeed(user, {
+        timeframeInHours: 168,
+      })
+    : await activityFeedService.getFriendActivityFeed(user, { limit: 20 });
 
   return { activities, isDisabled: false };
 };
 
 export function useActivityFeed() {
-  const { userId, isLoading: isUserLoading } = useUser();
+  const { user, userId, isLoading: isUserLoading } = useUser();
   const { isPro, isLoading: isProLoading } = useProStatus();
 
   const { data, error, isLoading, refetch } = useQuery<ActivityFeedState>({
     queryKey: ["activity-feed", isPro, userId],
-    queryFn: () => fetchActivityFeed(isPro, userId),
-    enabled: !!userId, // The query will not run until the userId is available. [8, 12]
+    queryFn: () => fetchActivityFeed(isPro, userId, user || null),
+    enabled: !!user, // The query will not run until the user is available. [8, 12]
     refetchInterval: 60000,
   });
 

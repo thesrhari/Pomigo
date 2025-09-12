@@ -5,22 +5,20 @@ import type {
   Friend,
   SearchResult,
   FriendSystemError,
-  BlockedUser, // Import the BlockedUser type
+  BlockedUser,
 } from "@/types/friends";
 import { createClient } from "./supabase/client";
+import { User } from "@supabase/supabase-js";
 
 export class FriendsService {
   private supabase = createClient();
 
-  // ... (all other methods like sendFriendRequest, getFriends, etc., remain the same)
   // Send a friend request
   async sendFriendRequest(
+    user: User | null | undefined,
     addresseeUsername: string
   ): Promise<{ success: boolean; error?: FriendSystemError }> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) {
         return { success: false, error: { message: "Not authenticated" } };
       }
@@ -110,11 +108,10 @@ export class FriendsService {
   }
 
   // Get incoming friend requests
-  async getIncomingRequests(): Promise<FriendRequest[]> {
+  async getIncomingRequests(
+    user: User | null | undefined
+  ): Promise<FriendRequest[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) return [];
 
       const { data, error } = await this.supabase
@@ -175,11 +172,10 @@ export class FriendsService {
   }
 
   // Get outgoing friend requests
-  async getOutgoingRequests(): Promise<FriendRequest[]> {
+  async getOutgoingRequests(
+    user: User | null | undefined
+  ): Promise<FriendRequest[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) return [];
 
       const { data, error } = await this.supabase
@@ -240,11 +236,8 @@ export class FriendsService {
   }
 
   // Get friends list
-  async getFriends(): Promise<Friend[]> {
+  async getFriends(user: User | null | undefined): Promise<Friend[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) return [];
 
       const { data, error } = await this.supabase
@@ -327,12 +320,10 @@ export class FriendsService {
 
   // Decline friend request
   async declineFriendRequest(
+    user: User | null | undefined,
     relationshipId: string
   ): Promise<{ success: boolean; error?: FriendSystemError }> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) {
         return { success: false, error: { message: "Not authenticated" } };
       }
@@ -432,12 +423,10 @@ export class FriendsService {
 
   // Block user
   async blockUser(
+    currentUser: User | null | undefined,
     userId: string
   ): Promise<{ success: boolean; error?: FriendSystemError }> {
     try {
-      const {
-        data: { user: currentUser },
-      } = await this.supabase.auth.getUser();
       if (!currentUser) {
         return { success: false, error: { message: "Not authenticated" } };
       }
@@ -491,11 +480,8 @@ export class FriendsService {
   }
 
   // New method to get blocked users
-  async getBlockedUsers(): Promise<BlockedUser[]> {
+  async getBlockedUsers(user: User | null | undefined): Promise<BlockedUser[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) return [];
 
       const { data, error } = await this.supabase
@@ -561,11 +547,11 @@ export class FriendsService {
   }
 
   // Search users
-  async searchUsers(query: string): Promise<SearchResult[]> {
+  async searchUsers(
+    user: User | null | undefined,
+    query: string
+  ): Promise<SearchResult[]> {
     try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser();
       if (!user) return [];
 
       // Search for users by username

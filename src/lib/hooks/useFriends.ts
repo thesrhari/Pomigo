@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { FriendsService } from "@/lib/friends-service";
+import { useUser } from "./useUser";
 import type { SearchResult } from "@/types/friends";
 
 // Initialize the FriendsService
@@ -19,42 +20,48 @@ export const queryKeys = {
 
 export function useFriends() {
   const queryClient = useQueryClient();
+  const { user } = useUser();
+
+  // A boolean to ensure queries only run when the user is authenticated.
+  const isUserEnabled = !!user;
 
   // Fetch all friend-related data in parallel using separate useQuery hooks
   const { data: friendsData, isLoading: isLoadingFriends } = useQuery({
     queryKey: queryKeys.friends(),
-    queryFn: () => friendsService.getFriends(),
+    queryFn: () => friendsService.getFriends(user),
+    enabled: isUserEnabled,
   });
 
   const { data: incomingRequestsData, isLoading: isLoadingIncoming } = useQuery(
     {
       queryKey: queryKeys.incoming(),
-      queryFn: () => friendsService.getIncomingRequests(),
+      queryFn: () => friendsService.getIncomingRequests(user),
+      enabled: isUserEnabled,
     }
   );
 
   const { data: outgoingRequestsData, isLoading: isLoadingOutgoing } = useQuery(
     {
       queryKey: queryKeys.outgoing(),
-      queryFn: () => friendsService.getOutgoingRequests(),
+      queryFn: () => friendsService.getOutgoingRequests(user),
+      enabled: isUserEnabled,
     }
   );
 
   const { data: blockedUsersData, isLoading: isLoadingBlocked } = useQuery({
     queryKey: queryKeys.blocked(),
-    queryFn: () => friendsService.getBlockedUsers(),
+    queryFn: () => friendsService.getBlockedUsers(user),
+    enabled: isUserEnabled,
   });
 
   // Generic mutation handler to invalidate relevant queries on success
   const useFriendMutation = <TData = unknown, TVariables = void>(
     mutationFn: (variables: TVariables) => Promise<TData>,
-    // CORRECTED TYPE: Now correctly accepts readonly tuples from queryKeys
     queriesToInvalidate: ReadonlyArray<Readonly<unknown[]>>
   ) => {
     return useMutation({
       mutationFn,
       onSuccess: () => {
-        // Invalidate each query key passed in
         return Promise.all(
           queriesToInvalidate.map((key) =>
             queryClient.invalidateQueries({ queryKey: key })
@@ -64,9 +71,8 @@ export function useFriends() {
     });
   };
 
-  // Mutations for various friend actions
   const sendFriendRequestMutation = useFriendMutation(
-    (username: string) => friendsService.sendFriendRequest(username),
+    (username: string) => friendsService.sendFriendRequest(user, username),
     [queryKeys.outgoing()]
   );
 
@@ -78,7 +84,7 @@ export function useFriends() {
 
   const declineFriendRequestMutation = useFriendMutation(
     (relationshipId: string) =>
-      friendsService.declineFriendRequest(relationshipId),
+      friendsService.declineFriendRequest(user, relationshipId),
     [queryKeys.incoming()]
   );
 
@@ -94,7 +100,7 @@ export function useFriends() {
   );
 
   const blockUserMutation = useFriendMutation(
-    (userId: string) => friendsService.blockUser(userId),
+    (userId: string) => friendsService.blockUser(user, userId),
     [
       queryKeys.blocked(),
       queryKeys.friends(),
@@ -111,14 +117,18 @@ export function useFriends() {
   // Mutation for on-demand user search
   const searchUsersMutation = useMutation({
     mutationFn: (searchTerm: string): Promise<SearchResult[]> => {
-      return friendsService.searchUsers(searchTerm);
+      return friendsService.searchUsers(user, searchTerm);
     },
   });
 
   // Function to manually refresh all friend-related data
   const refreshData = useCallback(() => {
-    return queryClient.invalidateQueries({ queryKey: queryKeys.all });
-  }, [queryClient]);
+    // Only attempt to refresh if the user is available
+    if (isUserEnabled) {
+      return queryClient.invalidateQueries({ queryKey: queryKeys.all });
+    }
+    return Promise.resolve();
+  }, [queryClient, isUserEnabled]);
 
   return {
     friends: friendsData ?? [],
@@ -126,6 +136,9 @@ export function useFriends() {
     outgoingRequests: outgoingRequestsData ?? [],
     blockedUsers: blockedUsersData ?? [],
     isLoading:
+      // When queries are disabled, their status is 'pending', not 'loading'.
+      // We should check if the user is loaded first. If not, we are loading.
+      !isUserEnabled ||
       isLoadingFriends ||
       isLoadingIncoming ||
       isLoadingOutgoing ||
