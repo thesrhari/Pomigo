@@ -27,9 +27,23 @@ interface SessionStatus {
   completed: boolean;
 }
 interface WorkerMessage {
-  command: "start" | "stop";
+  command: "start" | "stop" | "sync";
   duration?: number;
 }
+
+interface WakeLockSentinel {
+  readonly released: boolean;
+  release(): Promise<void>;
+}
+
+interface WakeLock {
+  request(type: "screen"): Promise<WakeLockSentinel>;
+}
+
+interface NavigatorWithWakeLock {
+  wakeLock?: WakeLock;
+}
+
 export default function PomodoroPage() {
   const {
     subjects,
@@ -57,59 +71,10 @@ export default function PomodoroPage() {
   const isPausedRef = useRef(false);
   const previousFocusTimeRef = useRef(0);
   const workerRef = useRef<Worker | null>(null);
-  useEffect(() => {
-    workerRef.current = new Worker("/timer.worker.js");
-    workerRef.current.onmessage = (
-      event: MessageEvent<{ type: string; timeLeft?: number }>
-    ) => {
-      const { type, timeLeft: workerTimeLeft } = event.data;
-      if (type === "tick" && workerTimeLeft !== undefined) {
-        setTimeLeft(workerTimeLeft);
-      } else if (type === "sessionEnd") {
-        if (pomodoroSettings) {
-          playSound(
-            pomodoroSettings.selectedSoundId,
-            pomodoroSettings.soundEnabled
-          );
-        }
-        setTimerRunning(false);
-        setFullscreenOverlayOpen(false);
-        isPausedRef.current = false;
-        setCompletedSessions((prev) => {
-          const newCompleted = [...prev];
-          const currentIndex =
-            (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
-          newCompleted[currentIndex] = {
-            type: currentSessionType,
-            completed: true,
-          };
-          return newCompleted;
-        });
-        const nextSessionType = getNextSessionType();
-        if (
-          currentCycle >= (pomodoroSettings?.iterations || 1) &&
-          currentSessionType !== "study"
-        ) {
-          return;
-        }
-        setCurrentSessionType(nextSessionType);
-        if (currentSessionType !== "study" && nextSessionType === "study") {
-          setCurrentCycle((prev) => prev + 1);
-        }
-        const nextDuration = getSessionDuration(nextSessionType);
-        setTimeLeft(nextDuration * 60);
-      }
-    };
-    return () => {
-      workerRef.current?.terminate();
-    };
-  }, [pomodoroSettings, playSound, currentCycle, currentSessionType]);
-  const isPomodoroSequenceActive =
-    currentCycle > 1 ||
-    currentSessionType !== "study" ||
-    completedSessions.length > 0 ||
-    timerRunning ||
-    isPausedRef.current;
+
+  // Wake lock reference
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+
   const getSessionDuration = (sessionType: SessionType): number => {
     if (!pomodoroSettings) return 25;
     switch (sessionType) {
@@ -123,6 +88,7 @@ export default function PomodoroPage() {
         return 25;
     }
   };
+
   const getNextSessionType = (): SessionType => {
     if (currentSessionType === "study") {
       if (
@@ -138,6 +104,193 @@ export default function PomodoroPage() {
     }
     return "study";
   };
+
+  // Initialize worker with enhanced message handling
+  useEffect(() => {
+    workerRef.current = new Worker("/timer.worker.js");
+
+    // Enhanced worker message handling
+    workerRef.current.onmessage = (
+      event: MessageEvent<{
+        type: string;
+        timeLeft?: number;
+        timestamp?: number;
+        isRunning?: boolean;
+      }>
+    ) => {
+      const {
+        type,
+        timeLeft: workerTimeLeft,
+        timestamp,
+        isRunning,
+      } = event.data;
+
+      switch (type) {
+        case "tick":
+          if (workerTimeLeft !== undefined) {
+            setTimeLeft(workerTimeLeft);
+          }
+          break;
+
+        case "sessionEnd":
+          console.log("Session ended, playing sound...");
+          if (pomodoroSettings) {
+            playSound(
+              pomodoroSettings.selectedSoundId,
+              pomodoroSettings.soundEnabled
+            );
+          }
+          setTimerRunning(false);
+          setFullscreenOverlayOpen(false);
+          isPausedRef.current = false;
+          setCompletedSessions((prev) => {
+            const newCompleted = [...prev];
+            const currentIndex =
+              (currentCycle - 1) * 2 + (currentSessionType === "study" ? 0 : 1);
+            newCompleted[currentIndex] = {
+              type: currentSessionType,
+              completed: true,
+            };
+            return newCompleted;
+          });
+          const nextSessionType = getNextSessionType();
+          if (
+            currentCycle >= (pomodoroSettings?.iterations || 1) &&
+            currentSessionType !== "study"
+          ) {
+            return;
+          }
+          setCurrentSessionType(nextSessionType);
+          if (currentSessionType !== "study" && nextSessionType === "study") {
+            setCurrentCycle((prev) => prev + 1);
+          }
+          const nextDuration = getSessionDuration(nextSessionType);
+          setTimeLeft(nextDuration * 60);
+          break;
+
+        case "heartbeat":
+          // Worker heartbeat - could be used to detect if worker is throttled
+          if (process.env.NODE_ENV === "development") {
+            console.log("Worker heartbeat:", { timestamp, isRunning });
+          }
+          break;
+
+        case "sync-response":
+          // Handle sync response
+          if (workerTimeLeft !== undefined && isRunning !== undefined) {
+            setTimeLeft(workerTimeLeft);
+            if (isRunning !== timerRunning) {
+              setTimerRunning(isRunning);
+              isPausedRef.current = !isRunning;
+            }
+          }
+          break;
+      }
+    };
+
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [pomodoroSettings, playSound, currentCycle, currentSessionType]);
+
+  // Page Visibility API support
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (workerRef.current) {
+        // Notify worker about visibility change
+        workerRef.current.postMessage({
+          type: "visibility-change",
+          hidden: document.hidden,
+        });
+
+        // If page becomes visible, sync with worker state
+        if (!document.hidden && (timerRunning || isPausedRef.current)) {
+          setTimeout(() => {
+            workerRef.current?.postMessage({
+              command: "sync",
+            } as WorkerMessage);
+          }, 100); // Small delay to ensure worker is ready
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [timerRunning]);
+
+  // Wake lock support for mobile devices (prevents screen sleep during timer)
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        const nav = navigator as NavigatorWithWakeLock;
+        if (nav.wakeLock && timerRunning && currentSessionType === "study") {
+          wakeLockRef.current = await nav.wakeLock.request("screen");
+          console.log("Screen wake lock acquired");
+        }
+      } catch (err) {
+        console.warn("Could not acquire wake lock:", err);
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current && !wakeLockRef.current.released) {
+        try {
+          await wakeLockRef.current.release();
+          console.log("Screen wake lock manually released");
+        } catch (err) {
+          console.warn("Could not release wake lock:", err);
+        }
+      }
+      wakeLockRef.current = null;
+    };
+
+    if (timerRunning && currentSessionType === "study") {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    return () => {
+      releaseWakeLock();
+    };
+  }, [timerRunning, currentSessionType]);
+
+  // Focus/blur event handling for additional reliability
+  useEffect(() => {
+    const handleFocus = () => {
+      // When window regains focus, sync with worker
+      if (workerRef.current && (timerRunning || isPausedRef.current)) {
+        console.log("Window focused, syncing with worker...");
+        workerRef.current.postMessage({ command: "sync" } as WorkerMessage);
+      }
+    };
+
+    const handleBlur = () => {
+      // When window loses focus, log for debugging
+      if (process.env.NODE_ENV === "development") {
+        console.log("Window lost focus, timer running:", timerRunning);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [timerRunning]);
+
+  const isPomodoroSequenceActive =
+    currentCycle > 1 ||
+    currentSessionType !== "study" ||
+    completedSessions.length > 0 ||
+    timerRunning ||
+    isPausedRef.current;
+
   const generateSessionSequence = (): SessionStatus[] => {
     if (!pomodoroSettings) return [];
     const sequence: SessionStatus[] = [];
@@ -164,9 +317,10 @@ export default function PomodoroPage() {
     }
     return sequence;
   };
+
   const handleSkipBreak = () => {
     if (currentSessionType === "study") return;
-    workerRef.current?.postMessage({ command: "stop" });
+    workerRef.current?.postMessage({ command: "stop" } as WorkerMessage);
     setTimerRunning(false);
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
@@ -190,12 +344,14 @@ export default function PomodoroPage() {
     const nextDuration = getSessionDuration(nextSessionType);
     setTimeLeft(nextDuration * 60);
   };
+
   useEffect(() => {
     if (pomodoroSettings && timeLeft === 0 && !timerRunning) {
       setTimeLeft(getSessionDuration(currentSessionType) * 60);
       previousFocusTimeRef.current = pomodoroSettings.focusTime;
     }
   }, [pomodoroSettings, timeLeft, timerRunning, currentSessionType]);
+
   useEffect(() => {
     if (subjects.length > 0) {
       const isSelectedSubjectValid = subjects.some(
@@ -208,12 +364,14 @@ export default function PomodoroPage() {
       // If no subjects are left, fall back to "Uncategorized"
       setCurrentSubject("Uncategorized");
     }
-  }, [subjects]);
+  }, [subjects, currentSubject]);
+
   useEffect(() => {
     if (subjects && subjects.length > 0 && !currentSubject) {
       setCurrentSubject(subjects[0].name);
     }
   }, [subjects, currentSubject]);
+
   useEffect(() => {
     if (!pomodoroSettings) return;
     const focusTimeChanged =
@@ -228,6 +386,7 @@ export default function PomodoroPage() {
     }
     previousFocusTimeRef.current = pomodoroSettings.focusTime;
   }, [pomodoroSettings?.focusTime, timerRunning, currentSessionType]);
+
   usePomodoroTracker({
     timeLeft,
     timerRunning,
@@ -237,11 +396,13 @@ export default function PomodoroPage() {
     shortBreakDuration: pomodoroSettings?.shortBreak || 5,
     longBreakDuration: pomodoroSettings?.longBreak || 15,
   });
+
   const getButtonText = () => {
     if (timerRunning) return "Pause";
     if (isPausedRef.current) return "Resume";
     return "Start";
   };
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -249,6 +410,7 @@ export default function PomodoroPage() {
       .toString()
       .padStart(2, "0")}`;
   };
+
   const handlePlayPause = () => {
     if (timerRunning) {
       isPausedRef.current = true;
@@ -266,6 +428,7 @@ export default function PomodoroPage() {
       }
     }
   };
+
   const handleReset = () => {
     workerRef.current?.postMessage({ command: "stop" } as WorkerMessage);
     setCurrentSessionType("study");
@@ -276,6 +439,7 @@ export default function PomodoroPage() {
     setFullscreenOverlayOpen(false);
     isPausedRef.current = false;
   };
+
   const handleUpdatePomodoroSettings = async (
     newSettings: typeof pomodoroSettings
   ) => {
@@ -290,6 +454,7 @@ export default function PomodoroPage() {
       console.error("Error updating pomodoro settings:", err);
     }
   };
+
   const SessionIndicators = () => {
     const sessionSequence = generateSessionSequence();
     const currentSessionIndex =
@@ -349,9 +514,11 @@ export default function PomodoroPage() {
       </div>
     );
   };
+
   if (loading || !pomodoroSettings) {
     return <PomodoroSkeleton />;
   }
+
   if (error) {
     return (
       <div className="max-w-xl mx-auto flex items-center justify-center min-h-[400px]">
@@ -367,6 +534,7 @@ export default function PomodoroPage() {
       </div>
     );
   }
+
   return (
     <>
       <div className="max-w-xl mx-auto space-y-8 px-4 py-4">

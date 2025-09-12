@@ -1,56 +1,241 @@
 /**
- * @file An enhanced web worker to run a countdown timer in the background.
- * This worker manages the full countdown logic to ensure it runs accurately
- * even when the tab is inactive.
+ * @file Enhanced web worker for countdown timer with multiple fallback mechanisms
+ * This worker uses multiple timing strategies to ensure reliability even when
+ * the browser throttles background tabs.
  */
 
-let timerId = null; // Holds the ID of the interval, so we can clear it.
-let timeLeft = 0; // Holds the current countdown time in seconds within the worker.
+let timerId = null;
+let timeLeft = 0;
+let startTime = null;
+let expectedDuration = 0;
+let highResTimerId = null;
+let broadcastChannel = null;
 
-// Listen for messages from the main thread
+// Initialize BroadcastChannel if available (for cross-tab communication)
+try {
+  if (typeof BroadcastChannel !== "undefined") {
+    broadcastChannel = new BroadcastChannel("pomodoro-timer");
+  }
+} catch (err) {
+  console.warn("BroadcastChannel not available");
+}
+
+// High-resolution timer fallback
+function startHighResTimer() {
+  if (highResTimerId) {
+    clearTimeout(highResTimerId);
+  }
+
+  const tick = () => {
+    if (timeLeft <= 0) return;
+
+    // Calculate actual elapsed time to account for throttling
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    const calculatedTimeLeft = Math.max(0, expectedDuration - elapsedSeconds);
+
+    // Use the more accurate calculation
+    timeLeft = calculatedTimeLeft;
+
+    if (timeLeft > 0) {
+      self.postMessage({ type: "tick", timeLeft: timeLeft });
+
+      // Broadcast to other tabs if available
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage({
+            type: "timer-update",
+            timeLeft: timeLeft,
+            timestamp: now,
+          });
+        } catch (err) {
+          console.warn("BroadcastChannel error:", err);
+        }
+      }
+
+      // Schedule next tick with slight randomization to avoid throttling patterns
+      const delay = 900 + Math.random() * 200; // 900-1100ms
+      highResTimerId = setTimeout(tick, delay);
+    } else {
+      // Timer finished
+      self.postMessage({ type: "sessionEnd" });
+
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage({
+            type: "session-end",
+            timestamp: Date.now(),
+          });
+        } catch (err) {
+          console.warn("BroadcastChannel error:", err);
+        }
+      }
+
+      cleanup();
+    }
+  };
+
+  tick();
+}
+
+function cleanup() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  if (highResTimerId) {
+    clearTimeout(highResTimerId);
+    highResTimerId = null;
+  }
+  startTime = null;
+  expectedDuration = 0;
+}
+
+// Listen for page visibility changes to adjust timing strategy
+self.addEventListener("message", function (e) {
+  if (e.data.type === "visibility-change") {
+    // Page became visible/hidden - we can adjust our strategy here if needed
+    if (timeLeft > 0 && startTime) {
+      // Recalculate time left based on actual elapsed time
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - startTime) / 1000);
+      timeLeft = Math.max(0, expectedDuration - elapsedSeconds);
+
+      self.postMessage({ type: "tick", timeLeft: timeLeft });
+
+      if (timeLeft === 0) {
+        self.postMessage({ type: "sessionEnd" });
+        cleanup();
+      }
+    }
+  }
+});
+
+// Main message handler
 self.onmessage = function (e) {
-  // The main thread will now send a 'duration' when starting.
   const { command, duration } = e.data;
 
   switch (command) {
     case "start":
-      // Always clear any existing timer before starting a new one.
-      // This prevents multiple timers from running simultaneously.
-      if (timerId) {
-        clearInterval(timerId);
-      }
+      cleanup(); // Clear any existing timers
 
-      // Set the initial time for this countdown session from the message data.
       timeLeft = duration;
+      expectedDuration = duration;
+      startTime = Date.now();
 
-      // Start a new interval that runs every 1000ms (1 second).
+      // Strategy 1: Regular interval (will be throttled in background)
       timerId = setInterval(() => {
-        timeLeft--; // Decrement the time left.
+        // Calculate actual elapsed time
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const calculatedTimeLeft = Math.max(
+          0,
+          expectedDuration - elapsedSeconds
+        );
+
+        // Use the more accurate of the two calculations
+        const decrementedTime = timeLeft - 1;
+        timeLeft = Math.min(decrementedTime, calculatedTimeLeft);
 
         if (timeLeft > 0) {
-          // If there's still time left, post a 'tick' message
-          // back to the main thread with the new remaining time.
-          // The main thread will use this value just for display purposes.
           self.postMessage({ type: "tick", timeLeft: timeLeft });
         } else {
-          // If the countdown has finished (timeLeft is 0 or less):
-          // 1. Post a special 'sessionEnd' message to the main thread.
-          //    This is the reliable trigger for playing the sound and changing the session.
           self.postMessage({ type: "sessionEnd" });
-
-          // 2. Stop the interval and clear the ID to clean up.
-          clearInterval(timerId);
-          timerId = null;
+          cleanup();
         }
-      }, 1000); // The interval is hardcoded to 1 second.
+      }, 1000);
+
+      // Strategy 2: High-resolution timer with drift correction
+      startHighResTimer();
+
+      // Strategy 3: Broadcast timer state for cross-tab sync
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage({
+            type: "timer-start",
+            duration: duration,
+            startTime: startTime,
+          });
+        } catch (err) {
+          console.warn("BroadcastChannel error:", err);
+        }
+      }
       break;
 
     case "stop":
-      // If a 'stop' command is received, clear the interval and reset the ID.
-      if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
+      cleanup();
+
+      if (broadcastChannel) {
+        try {
+          broadcastChannel.postMessage({
+            type: "timer-stop",
+            timestamp: Date.now(),
+          });
+        } catch (err) {
+          console.warn("BroadcastChannel error:", err);
+        }
+      }
+      break;
+
+    case "sync":
+      // Allow main thread to sync with worker state
+      if (startTime && timeLeft > 0) {
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - startTime) / 1000);
+        const calculatedTimeLeft = Math.max(
+          0,
+          expectedDuration - elapsedSeconds
+        );
+        timeLeft = calculatedTimeLeft;
+
+        self.postMessage({
+          type: "sync-response",
+          timeLeft: timeLeft,
+          isRunning: timerId !== null,
+        });
+      } else {
+        self.postMessage({
+          type: "sync-response",
+          timeLeft: 0,
+          isRunning: false,
+        });
       }
       break;
   }
 };
+
+// Listen for messages from other tabs via BroadcastChannel
+if (broadcastChannel) {
+  broadcastChannel.onmessage = function (e) {
+    const { type, timeLeft: syncTimeLeft, timestamp } = e.data;
+
+    // Sync with other tabs if they have more recent data
+    if (type === "timer-update" && syncTimeLeft !== undefined) {
+      const now = Date.now();
+      const timeDiff = Math.abs(now - timestamp);
+
+      // Only sync if the timestamp is recent (within 2 seconds)
+      if (timeDiff < 2000 && Math.abs(timeLeft - syncTimeLeft) > 1) {
+        timeLeft = syncTimeLeft;
+        self.postMessage({ type: "tick", timeLeft: timeLeft });
+      }
+    }
+
+    if (type === "session-end") {
+      self.postMessage({ type: "sessionEnd" });
+      cleanup();
+    }
+  };
+}
+
+// Send periodic heartbeats to detect if worker is being throttled
+let heartbeatInterval = setInterval(() => {
+  self.postMessage({
+    type: "heartbeat",
+    timestamp: Date.now(),
+    isActive: timerId !== null,
+  });
+}, 5000);
+
+// Cleanup on worker termination
+self.addEventListener("beforeunload", cleanup);
