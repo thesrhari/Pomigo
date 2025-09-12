@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 import { usePreview } from "@/components/PreviewProvider";
+import { DynamicFontLoader } from "./DynamicFontLoader";
 
 type Theme =
   | "light"
@@ -74,6 +75,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     <ThemeContext.Provider
       value={{ theme: effectiveTheme, setTheme: setTheme || (() => {}) }}
     >
+      <DynamicFontLoader />
       {children}
     </ThemeContext.Provider>
   );
