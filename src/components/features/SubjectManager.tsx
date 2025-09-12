@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,8 +40,8 @@ interface Subject {
 interface SubjectManagerProps {
   subjects: Subject[];
   addSubject: (variables: { name: string; color: string }) => Promise<void>;
-  updateSubjects: (subject: Subject) => Promise<void>;
-  deleteSubject?: (subjectId: number) => Promise<void>;
+  updateSubjects: (subject: Subject) => Promise<Subject>;
+  deleteSubject?: (subjectId: number) => Promise<number>;
 }
 
 const formatDuration = (minutes: number) => {
@@ -63,6 +63,9 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  // Requirement 2: State to hold the original subject data to compare for changes
+  const [originalEditingSubject, setOriginalEditingSubject] =
+    useState<Subject | null>(null);
   const [deletingSubject, setDeletingSubject] = useState<Subject | null>(null);
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -88,6 +91,20 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     "#6366F1",
     "#A855F7",
   ];
+
+  // Requirement 2: Check if there are any changes in the editing form
+  const hasChanges = useMemo(() => {
+    if (!editingSubject || !originalEditingSubject) return false;
+    return (
+      editingSubject.name !== originalEditingSubject.name ||
+      editingSubject.color !== originalEditingSubject.color
+    );
+  }, [editingSubject, originalEditingSubject]);
+
+  const handleEditClick = (subject: Subject) => {
+    setEditingSubject(subject);
+    setOriginalEditingSubject(subject); // Store the original state
+  };
 
   const addSubject = async () => {
     if (isLimitReached) {
@@ -117,10 +134,12 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
   };
 
   const editSubject = async (subject: Subject) => {
+    if (!hasChanges) return; // Don't save if no changes
     setIsLoading(true);
     try {
       await updateSubjects(subject);
       setEditingSubject(null);
+      setOriginalEditingSubject(null);
       toast.success("Subject updated successfully.");
     } catch (err) {
       console.error("Error editing subject:", err);
@@ -158,20 +177,22 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" className="gap-2 cursor-pointer">
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4" /> Subject
           </Button>
         </DialogTrigger>
-        <DialogContent className="!max-w-6xl !w-[95vw] max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader className="pb-4 flex-shrink-0">
-            <DialogTitle className="text-2xl">Manage Subjects</DialogTitle>
-            <DialogDescription className="text-base">
+        {/* Requirement 1: Improved mobile responsiveness for the dialog content */}
+        <DialogContent className="!max-w-6xl !w-[95vw] max-h-[90vh] md:max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-2 flex-shrink-0">
+            <DialogTitle className="text-xl">Manage Subjects</DialogTitle>
+            <DialogDescription className="text-md">
               Add, edit, or remove your study subjects.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0 overflow-hidden">
+          {/* Requirement 1: Reduced gap on smaller screens for a tighter layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 flex-1 min-h-0 overflow-hidden">
             <div className="overflow-y-auto custom-scrollbar pr-2">
-              <div className="bg-accent/20 rounded-2xl border border-accent-foreground/10 p-6">
-                <div className="mb-6">
+              <div className="bg-accent/20 rounded-2xl border border-accent-foreground/10 p-4 md:p-6">
+                <div className="mb-4">
                   <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                     <Plus className="w-5 h-5 text-primary" />
                     Add New Subject
@@ -214,7 +235,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       onChange={(e) =>
                         setNewSubject({ ...newSubject, name: e.target.value })
                       }
-                      placeholder="e.g., Mathematics, Physics, History..."
+                      placeholder="e.g., Mathematics, Physics..."
                       className="h-11 text-base"
                       disabled={isLoading || isLimitReached || isProLoading}
                       onKeyDown={(e) => e.key === "Enter" && addSubject()}
@@ -228,7 +249,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                     <div className="space-y-4">
                       <div className="flex items-center gap-3 p-3 bg-card rounded-xl border border-border">
                         <div
-                          className="w-12 h-12 rounded-xl border-4 border-background shadow-lg ring-1 ring-border flex-shrink-0"
+                          className="w-10 h-10 rounded-lg border-4 border-background shadow-lg ring-1 ring-border flex-shrink-0"
                           style={{ backgroundColor: newSubject.color }}
                         />
                         <div className="flex-1 min-w-0">
@@ -255,7 +276,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                         <Label className="text-xs text-muted-foreground mb-2 block">
                           Quick Colors
                         </Label>
-                        <div className="grid grid-cols-6 gap-2">
+                        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-6 gap-2">
                           {presetColors.map((color, index) => (
                             <button
                               key={index}
@@ -289,7 +310,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                   >
                     {isLoading ? (
                       <>
-                        <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
+                        <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
                         Adding...
                       </>
                     ) : (
@@ -301,7 +322,8 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                 </div>
               </div>
             </div>
-            <div className="flex flex-col min-h-0">
+            {/* Requirement 3: Slightly reduced height on the right side container for large screens */}
+            <div className="flex flex-col min-h-0 lg:h-[98%]">
               <div className="mb-4 flex-shrink-0">
                 <h3 className="text-lg font-semibold mb-2">Your Subjects</h3>
                 <p className="text-sm text-muted-foreground">
@@ -310,7 +332,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                 </p>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                {subjects.length === 0 ? (
+                {subjects.length <= 1 ? ( // Consider Uncategorized
                   <div className="flex flex-col items-center justify-center h-full text-center bg-muted/30 rounded-2xl border-2 border-dashed border-border/50 p-8">
                     <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center text-3xl mb-4">
                       📚
@@ -319,8 +341,8 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       No subjects yet
                     </h4>
                     <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                      Create your first subject using the form to get started
-                      with organizing your studies!
+                      Create your first subject to get started organizing your
+                      studies!
                     </p>
                   </div>
                 ) : (
@@ -329,17 +351,17 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       .sort((a, b) => {
                         if (a.name === "Uncategorized") return -1;
                         if (b.name === "Uncategorized") return 1;
-                        return 0;
+                        return a.name.localeCompare(b.name);
                       })
                       .map((subject) => (
                         <div
                           key={subject.id}
                           className="group bg-card/60 backdrop-blur-sm border border-border rounded-xl p-4 transition-all duration-200 hover:bg-card hover:shadow-lg hover:border-border/80"
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               <div
-                                className="w-12 h-12 rounded-xl shadow-md transition-transform duration-200 group-hover:scale-105 border-2 border-background/20 flex-shrink-0"
+                                className="w-10 h-10 rounded-lg shadow-md transition-transform duration-200 group-hover:scale-105 border-2 border-background/20 flex-shrink-0"
                                 style={{ backgroundColor: subject.color }}
                               />
                               <div className="min-w-0 flex-1">
@@ -352,12 +374,12 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                               </div>
                             </div>
                             {subject.name !== "Uncategorized" && (
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+                              <div className="flex gap-1 transition-opacity duration-200 flex-shrink-0">
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="cursor-pointer h-8 w-8 hover:bg-accent hover:text-accent-foreground"
-                                  onClick={() => setEditingSubject(subject)}
+                                  onClick={() => handleEditClick(subject)}
                                   disabled={isLoading}
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -405,7 +427,10 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
       {editingSubject && (
         <Dialog
           open={!!editingSubject}
-          onOpenChange={() => setEditingSubject(null)}
+          onOpenChange={() => {
+            setEditingSubject(null);
+            setOriginalEditingSubject(null);
+          }}
         >
           <DialogContent className="sm:max-w-lg">
             <DialogHeader className="pb-6">
@@ -439,7 +464,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-xl border border-border">
                     <div
-                      className="w-12 h-12 rounded-xl border-2 border-background/20 shadow-sm"
+                      className="w-12 h-12 rounded-xl border-2 border-background/20 shadow-sm flex-shrink-0"
                       style={{ backgroundColor: editingSubject.color }}
                     />
                     <Input
@@ -455,7 +480,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
                       disabled={isLoading}
                     />
                   </div>
-                  <div className="grid grid-cols-6 gap-2">
+                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
                     {presetColors.map((color, index) => (
                       <button
                         key={index}
@@ -485,11 +510,12 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
               </Button>
               <Button
                 onClick={() => editSubject(editingSubject)}
-                disabled={isLoading}
+                // Requirement 2: Disable button if there are no changes or if loading
+                disabled={!hasChanges || isLoading}
               >
                 {isLoading ? (
                   <>
-                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
+                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Saving...
                   </>
                 ) : (
@@ -522,7 +548,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />{" "}
+                  <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   Deleting...
                 </>
               ) : (

@@ -215,9 +215,22 @@ export function usePomodoroData() {
       return subjectId;
     },
     onSuccess: (subjectId) => {
-      queryClient.setQueryData<Subject[]>(["subjects", userId], (oldData) =>
-        oldData ? oldData.filter((subject) => subject.id !== subjectId) : []
-      );
+      queryClient.setQueryData<Subject[]>(["subjects", userId], (oldData) => {
+        if (!oldData) return [];
+
+        const deletedSubject = oldData.find(
+          (subject) => subject.id === subjectId
+        );
+        const uncategorizedSubject = oldData.find(
+          (subject) => subject.name === "Uncategorized"
+        );
+
+        if (deletedSubject && uncategorizedSubject) {
+          uncategorizedSubject.totalHours += deletedSubject.totalHours;
+        }
+
+        return oldData.filter((subject) => subject.id !== subjectId);
+      });
     },
   });
 
