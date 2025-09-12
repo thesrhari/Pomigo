@@ -56,7 +56,9 @@ export default function PomodoroPage() {
     updatePomodoroSettings,
   } = usePomodoroData();
   const { timerStyle } = useUserPreferences();
-  const { playSound } = useAudioNotifications();
+  const { playSound } = useAudioNotifications(
+    pomodoroSettings?.selectedSoundId || null
+  );
   const [timerRunning, setTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [currentSubject, setCurrentSubject] = useState("Uncategorized");
@@ -135,10 +137,7 @@ export default function PomodoroPage() {
         case "sessionEnd":
           console.log("Session ended, playing sound...");
           if (pomodoroSettings) {
-            playSound(
-              pomodoroSettings.selectedSoundId,
-              pomodoroSettings.soundEnabled
-            );
+            playSound(pomodoroSettings.soundEnabled);
           }
           setTimerRunning(false);
           setFullscreenOverlayOpen(false);
