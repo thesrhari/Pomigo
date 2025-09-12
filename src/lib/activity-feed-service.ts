@@ -48,12 +48,6 @@ interface ActivityFeedEntry {
 type GetFeedOptions = { limit: number } | { timeframeInHours: number };
 
 export class ActivityFeedService {
-  private generateRandomMinutes(baseMinutes: number): number {
-    // Add random minutes (0-59) to make it more realistic
-    const randomMinutes = Math.floor(Math.random() * 60);
-    return baseMinutes + randomMinutes;
-  }
-
   private formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -89,7 +83,7 @@ export class ActivityFeedService {
       activities.push(...studyActivities);
     } else if (
       sessionData.session_type === "long_break" &&
-      sessionData.duration >= 30
+      sessionData.duration >= 25
     ) {
       const breakActivity = await this.createBreakActivity(sessionData);
       activities.push(breakActivity);
@@ -167,7 +161,7 @@ export class ActivityFeedService {
       }
     }
 
-    // 4. Study Summary (daily milestones)
+    // 4. Study Summary (daily milestones) - Updated to show exact time
     const totalStudyTime = todaySessions.reduce(
       (sum, s) => sum + s.duration,
       0
@@ -187,14 +181,13 @@ export class ActivityFeedService {
           .limit(1);
 
         if (!existingSummary?.length) {
-          const randomizedTime = this.generateRandomMinutes(milestone);
           activities.push({
             user_id: sessionData.user_id,
             activity_type: "study_summary",
-            message: `studied ${this.formatDuration(randomizedTime)} today.`,
+            message: `studied ${this.formatDuration(totalStudyTime)} today.`,
             metadata: {
               milestone,
-              actual_time: randomizedTime,
+              actual_time: totalStudyTime,
               date: format(today, "yyyy-MM-dd"),
             },
           });
@@ -203,8 +196,10 @@ export class ActivityFeedService {
       }
     }
 
-    // 5. Streak Milestone
-    await this.checkStreakMilestone(sessionData.user_id, activities);
+    // 5. Streak Milestone - Updated logic
+    if (todaySessions.length === 1) {
+      await this.checkStreakMilestone(sessionData.user_id, activities);
+    }
 
     return activities;
   }
@@ -235,37 +230,30 @@ export class ActivityFeedService {
     if (!allSessions) return;
 
     const currentStreak = this.calculateCurrentStreak(allSessions);
-    const streakMilestones = [3, 7, 14, 30];
 
-    for (const milestone of streakMilestones) {
-      if (currentStreak >= milestone) {
-        // Check if we've already logged this streak milestone
-        const { data: existingStreak } = await supabase
-          .from("activity_feed")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("activity_type", "streak_milestone")
-          .eq("metadata->>streak_days", milestone.toString())
-          .gte("created_at", subDays(new Date(), 1).toISOString()) // Within last day
-          .limit(1);
+    // Only generate streak activity if streak is 3 days or more
+    if (currentStreak >= 3) {
+      const today = startOfDay(new Date());
 
-        if (!existingStreak?.length) {
-          let message = `has a study streak of ${milestone} days!`;
-          if (milestone >= 30) {
-            message = `has a study streak of ${currentStreak} days!`;
-          }
+      // Check if we've already logged a streak milestone today
+      const { data: existingStreak } = await supabase
+        .from("activity_feed")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("activity_type", "streak_milestone")
+        .gte("created_at", today.toISOString())
+        .limit(1);
 
-          activities.push({
-            user_id: userId,
-            activity_type: "streak_milestone",
-            message,
-            metadata: {
-              streak_days: milestone >= 30 ? currentStreak : milestone,
-              milestone_type: milestone >= 30 ? "30+" : milestone.toString(),
-            },
-          });
-          break; // Only log the highest milestone reached
-        }
+      if (!existingStreak?.length) {
+        activities.push({
+          user_id: userId,
+          activity_type: "streak_milestone",
+          message: `has a study streak of ${currentStreak} days!`,
+          metadata: {
+            streak_days: currentStreak,
+            date: format(today, "yyyy-MM-dd"),
+          },
+        });
       }
     }
   }
