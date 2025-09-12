@@ -32,6 +32,7 @@ export default function ThemeSelectorPage() {
     timerStyle: currentTimerStyle,
     applyTimerStyle: handleApplyTimerStyle,
     isLoading: isStyleLoading,
+    isUpdating,
   } = useUserPreferences();
   const [isTimerPreviewOpen, setIsTimerPreviewOpen] = useState(false);
   const [previewTimerStyle, setPreviewTimerStyle] =
@@ -127,6 +128,7 @@ export default function ThemeSelectorPage() {
                   onApplyStyle={handleApplyTimerStyle}
                   onPreviewStyle={handlePreviewTimerStyle}
                   onUpgradeClick={() => setIsPricingModalOpen(true)}
+                  isUpdating={isUpdating}
                 />
               )}
             </TabsContent>

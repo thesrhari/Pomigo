@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client"; // Assuming this path is correct in your project
 import { User } from "@supabase/supabase-js"; // For type safety
+import { useUser } from "@/lib/hooks/useUser";
 
 // --- TYPE DEFINITIONS ---
 
@@ -160,7 +161,7 @@ const DropdownMenuContent: FC<{
 // --- HEADER COMPONENT ---
 
 const Header: FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useUser();
   const supabase = createClient();
   const router = useRouter();
 
@@ -170,20 +171,9 @@ const Header: FC = () => {
     { href: "#pricing", label: "Pricing" },
   ];
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, [supabase]);
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.refresh();
-    setUser(null);
   };
 
   return (

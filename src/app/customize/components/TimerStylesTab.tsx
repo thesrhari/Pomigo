@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,8 +17,10 @@ import {
   FlipVertical,
   LoaderCircle,
   GitCommitHorizontal,
+  Loader2,
 } from "lucide-react";
 import { useProStatus } from "@/lib/hooks/useProStatus";
+import { useEffect, useState } from "react";
 
 export type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 
@@ -34,6 +37,7 @@ interface TimerStylesTabProps {
   onApplyStyle: (style: TimerStyle) => void;
   onPreviewStyle: (style: TimerStyle) => void;
   onUpgradeClick: () => void;
+  isUpdating: boolean;
 }
 
 const timerStyleOptions: TimerStyleOption[] = [
@@ -72,8 +76,24 @@ export function TimerStylesTab({
   onApplyStyle,
   onPreviewStyle,
   onUpgradeClick,
+  isUpdating,
 }: TimerStylesTabProps) {
   const { isPro } = useProStatus();
+  const [applyingStyleId, setApplyingStyleId] = useState<TimerStyle | null>(
+    null
+  );
+
+  const handleApplyStyle = (styleId: TimerStyle) => {
+    setApplyingStyleId(styleId);
+    onApplyStyle(styleId);
+  };
+
+  // Clear the applying ID when the update is finished
+  useEffect(() => {
+    if (!isUpdating) {
+      setApplyingStyleId(null);
+    }
+  }, [isUpdating]);
 
   return (
     <div className="space-y-6">
@@ -89,6 +109,7 @@ export function TimerStylesTab({
           const isCurrentStyle = currentStyle === option.id;
           const canApply = !option.isPro || isPro;
           const IconComponent = option.icon;
+          const isApplying = isUpdating && applyingStyleId === option.id;
 
           return (
             <Card
@@ -217,16 +238,26 @@ export function TimerStylesTab({
                   {canApply ? (
                     <>
                       <Button
-                        onClick={() => onApplyStyle(option.id)}
-                        disabled={isCurrentStyle}
+                        onClick={() => handleApplyStyle(option.id)}
+                        disabled={isCurrentStyle || isApplying}
                         variant={isCurrentStyle ? "secondary" : "default"}
                         className="w-full"
                       >
-                        {isCurrentStyle ? "Applied" : "Apply"}
+                        {isApplying ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Applying
+                          </>
+                        ) : isCurrentStyle ? (
+                          "Applied"
+                        ) : (
+                          "Apply"
+                        )}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => onPreviewStyle(option.id)}
+                        disabled={isApplying}
                         className="w-full"
                       >
                         <Eye className="w-4 h-4 mr-2" />

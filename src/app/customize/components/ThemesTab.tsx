@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,10 +8,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Check, Lock, Eye } from "lucide-react";
-import { useTheme, Theme } from "@/components/ThemeProvider";
+import { Crown, Check, Lock, Eye, Loader2 } from "lucide-react";
+import { Theme } from "@/components/ThemeProvider";
 import { usePreview } from "@/components/PreviewProvider";
 import { useProStatus } from "@/lib/hooks/useProStatus";
+import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
+import { useEffect, useState } from "react";
 
 interface ThemeOption {
   id: Theme;
@@ -141,17 +144,25 @@ const themeOptions: ThemeOption[] = [
 ];
 
 export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
-  const { theme: currentTheme, setTheme } = useTheme();
+  const { theme: currentTheme, applyTheme, isUpdating } = useUserPreferences();
   const { startPreview } = usePreview();
   const { isPro } = useProStatus();
+  const [applyingThemeId, setApplyingThemeId] = useState<Theme | null>(null);
 
   const handleApplyTheme = (themeId: Theme) => {
-    setTheme(themeId);
+    setApplyingThemeId(themeId);
+    applyTheme(themeId);
   };
 
   const handlePreviewTheme = (themeId: Theme) => {
     startPreview(themeId);
   };
+
+  useEffect(() => {
+    if (!isUpdating) {
+      setApplyingThemeId(null);
+    }
+  }, [isUpdating]);
 
   return (
     <div className="space-y-6">
@@ -166,6 +177,7 @@ export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
         {themeOptions.map((option) => {
           const isCurrentTheme = currentTheme === option.id;
           const canApply = !option.isPro || isPro;
+          const isApplying = isUpdating && applyingThemeId === option.id;
 
           return (
             <Card
@@ -233,15 +245,25 @@ export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
                     <>
                       <Button
                         onClick={() => handleApplyTheme(option.id)}
-                        disabled={isCurrentTheme}
+                        disabled={isCurrentTheme || isApplying}
                         variant={isCurrentTheme ? "secondary" : "default"}
                         className="w-full"
                       >
-                        {isCurrentTheme ? "Applied" : "Apply"}
+                        {isApplying ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Applying
+                          </>
+                        ) : isCurrentTheme ? (
+                          "Applied"
+                        ) : (
+                          "Apply"
+                        )}
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => handlePreviewTheme(option.id)}
+                        disabled={isApplying}
                         className="w-full"
                       >
                         <Eye className="w-4 h-4 mr-2" />

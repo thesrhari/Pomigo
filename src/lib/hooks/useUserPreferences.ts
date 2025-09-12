@@ -64,12 +64,10 @@ export function useUserPreferences() {
   const { isPro, isLoading: isProStatusLoading } = useProStatus();
   const queryClient = useQueryClient();
 
-  // FIX: Initialize state without accessing localStorage directly.
   const [localTimerStyle, setLocalTimerStyle] =
     useState<TimerStyle>(defaultStyle);
   const [localTheme, setLocalTheme] = useState<Theme>(defaultTheme);
 
-  // FIX: Use useEffect to safely access localStorage on the client.
   useEffect(() => {
     const storedTimerStyle = localStorage.getItem("timerStyle") as TimerStyle;
     if (storedTimerStyle) {
@@ -81,7 +79,6 @@ export function useUserPreferences() {
     }
   }, []);
 
-  // --- Data Fetching for Authenticated Users ---
   const { data: dbPreferences, isLoading: isPrefsLoading } = useQuery({
     queryKey: ["userPreferences", user?.id],
     queryFn: () => fetchPreferences(user!.id),
@@ -89,11 +86,10 @@ export function useUserPreferences() {
   });
 
   // --- Data Mutation for Authenticated Users ---
-  const { mutate: updateUserPreferences } = useMutation({
+  const { mutate: updateUserPreferences, isPending: isUpdating } = useMutation({
     mutationFn: (newPrefs: Partial<UserPreferences>) =>
       updatePreferences(user!.id, newPrefs),
     onSuccess: (data, newPrefs) => {
-      // Update the local cache directly instead of refetching
       queryClient.setQueryData(
         ["userPreferences", user?.id],
         (oldData: UserPreferences | undefined) => {
@@ -112,7 +108,6 @@ export function useUserPreferences() {
     },
     onError: (error) => {
       console.error("Failed to update preferences:", error);
-      // Optionally, show a toast notification to the user
     },
   });
 
@@ -122,7 +117,6 @@ export function useUserPreferences() {
     : localTimerStyle;
   let theme = user ? dbPreferences?.theme ?? defaultTheme : localTheme;
 
-  // When pro status is loaded, validate the preferences for non-pro users
   if (user && !isProStatusLoading && !isPro) {
     if (proStyles.includes(timerStyle)) {
       timerStyle = defaultStyle;
@@ -132,7 +126,6 @@ export function useUserPreferences() {
     }
   }
 
-  // --- Effect to sync validated preferences to localStorage for consistency ---
   useEffect(() => {
     localStorage.setItem("timerStyle", timerStyle);
     localStorage.setItem("theme", theme);
@@ -144,7 +137,7 @@ export function useUserPreferences() {
       if (!isPro && proStyles.includes(newStyle)) return;
       updateUserPreferences({ timer_style: newStyle });
     } else {
-      if (proStyles.includes(newStyle)) return; // Should not happen with UI controls
+      if (proStyles.includes(newStyle)) return;
       setLocalTimerStyle(newStyle);
     }
   };
@@ -154,7 +147,7 @@ export function useUserPreferences() {
       if (!isPro && proThemes.includes(newTheme)) return;
       updateUserPreferences({ theme: newTheme });
     } else {
-      if (proThemes.includes(newTheme)) return; // Should not happen with UI controls
+      if (proThemes.includes(newTheme)) return;
       setLocalTheme(newTheme);
     }
   };
@@ -165,5 +158,6 @@ export function useUserPreferences() {
     theme,
     applyTheme,
     isLoading: isPrefsLoading || isProStatusLoading,
+    isUpdating,
   };
 }
