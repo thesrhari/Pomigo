@@ -23,12 +23,15 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// Define the paths where the light theme should be forced
+const lightThemeForcedPaths = ["/", "/login"];
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, applyTheme: setTheme } = useUserPreferences();
   const { isPreviewMode, previewTheme } = usePreview();
   const pathname = usePathname();
 
-  // Apply theme to DOM - respects preview mode and forces light theme on landing page
+  // Apply theme to DOM - respects preview mode and forces light theme on specific pages
   useEffect(() => {
     const applyThemeToDOM = (t: Theme) => {
       const validThemes: Theme[] = [
@@ -51,8 +54,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Force light theme on landing page (root "/")
-    if (pathname === "/") {
+    // Force light theme on the specified paths
+    if (lightThemeForcedPaths.includes(pathname)) {
       applyThemeToDOM("light");
       return;
     }
@@ -62,8 +65,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyThemeToDOM(activeTheme);
   }, [theme, isPreviewMode, previewTheme, pathname]);
 
-  // Return the actual theme (light) when on landing page, otherwise return the user's theme
-  const effectiveTheme = pathname === "/" ? "light" : theme;
+  // Return the actual theme (light) for the specified paths, otherwise return the user's theme
+  const effectiveTheme = lightThemeForcedPaths.includes(pathname)
+    ? "light"
+    : theme;
 
   return (
     <ThemeContext.Provider
