@@ -1,6 +1,6 @@
 // lib/hooks/useAnalyticsData.ts
 import { useMemo } from "react";
-import useSWR from "swr";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import {
   startOfDay,
@@ -20,6 +20,7 @@ import {
   getDay,
   getHours,
 } from "date-fns";
+import { useUser } from "./useUser";
 
 const supabase = createClient();
 
@@ -46,7 +47,7 @@ export type DateFilter = {
   date?: Date;
 };
 
-interface RawSession {
+export interface RawSession {
   session_type: "study" | "short_break" | "long_break";
   duration: number;
   subject: string | null;
@@ -110,18 +111,14 @@ export type DailyContribution = {
   subjects: Record<string, number>;
 };
 
-// --- FETCHER FUNCTION FOR SWR ---
-
-const fetcher = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated.");
+// --- FETCHER FUNCTION FOR TANSTACK QUERY ---
+const fetchAnalyticsData = async (userId: string | undefined) => {
+  if (!userId) throw new Error("User not authenticated.");
 
   const { data: allSessions, error: allSessionsError } = await supabase
     .from("sessions")
     .select("session_type, duration, subject, started_at")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("started_at", { ascending: false });
 
   if (allSessionsError) throw allSessionsError;
@@ -129,14 +126,19 @@ const fetcher = async () => {
   return allSessions;
 };
 
-// --- HOOK IMPLEMENTATION WITH SWR ---
-
+// --- HOOK IMPLEMENTATION WITH TANSTACK QUERY ---
 export function useAnalyticsData(filter: DateFilter, contributionYear: number) {
+  const { userId } = useUser();
+
   const {
     data: allSessions,
     error,
     isLoading,
-  } = useSWR<RawSession[]>("analytics-data", fetcher);
+  } = useQuery<RawSession[]>({
+    queryKey: ["analytics-data", userId],
+    queryFn: () => fetchAnalyticsData(userId),
+    enabled: !!userId,
+  });
 
   const processedData = useMemo(() => {
     if (!allSessions) return null;
@@ -217,7 +219,7 @@ export function useAnalyticsData(filter: DateFilter, contributionYear: number) {
   return {
     data: processedData,
     loading: isLoading,
-    error: error?.message || null,
+    error: error ? (error as Error).message : null,
     availableYears,
   };
 }

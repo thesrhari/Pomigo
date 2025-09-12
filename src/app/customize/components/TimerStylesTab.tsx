@@ -18,7 +18,6 @@ import {
   GitCommitHorizontal,
 } from "lucide-react";
 import { useProStatus } from "@/lib/hooks/useProStatus";
-import { useUser } from "@/lib/hooks/useUser";
 
 export type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 
@@ -74,8 +73,7 @@ export function TimerStylesTab({
   onPreviewStyle,
   onUpgradeClick,
 }: TimerStylesTabProps) {
-  const { user } = useUser();
-  const { isPro } = useProStatus(user || null);
+  const { isPro } = useProStatus();
 
   return (
     <div className="space-y-6">

@@ -33,7 +33,7 @@ export default function SubscriptionPage() {
     currentPage,
     hasNextPage,
     handlePageChange,
-  } = useSubscriptionManagement(user!);
+  } = useSubscriptionManagement();
 
   useEffect(() => {
     setIsClient(true);
@@ -95,12 +95,12 @@ export default function SubscriptionPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <SubscriptionPlanCard
-              subscription={subscription}
+              subscription={subscription || null}
               planName={getPlanName()}
             />
 
             <SubscriptionActionsCard
-              subscription={subscription}
+              subscription={subscription || null}
               isLifetime={isLifetime!}
               isActive={isActive}
               isCancelled={isCancelled}

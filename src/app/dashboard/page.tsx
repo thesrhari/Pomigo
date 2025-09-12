@@ -51,7 +51,7 @@ export default function DashboardPage() {
   if (statsError) {
     return (
       <div className="text-red-500">
-        Error loading dashboard stats: {statsError}
+        Error loading dashboard stats: {`${statsError}`}
       </div>
     );
   }
@@ -91,7 +91,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard
           title="Time Today"
           value={statsData ? formatDuration(statsData.totalStudyTime) : "0.0"}

@@ -27,7 +27,6 @@ import { toast } from "react-toastify";
 import { PostgrestError } from "@supabase/supabase-js";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { PricingModal } from "../PricingModal";
-import { useUser } from "@/lib/hooks/useUser";
 
 const supabase = createClient();
 
@@ -40,7 +39,7 @@ interface Subject {
 
 interface SubjectManagerProps {
   subjects: Subject[];
-  addSubject: (name: string, color: string) => Promise<void>;
+  addSubject: (variables: { name: string; color: string }) => Promise<void>;
   updateSubjects: (subject: Subject) => Promise<void>;
   deleteSubject?: (subjectId: number) => Promise<void>;
 }
@@ -71,8 +70,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
-  const { user } = useUser();
-  const { isPro, isLoading: isProLoading } = useProStatus(user || null);
+  const { isPro, isLoading: isProLoading } = useProStatus();
   const freeUserSubjectLimit = 3;
   const isLimitReached = !isPro && subjects.length >= freeUserSubjectLimit + 1; // Don't count Uncategorized
 
@@ -101,7 +99,7 @@ export const SubjectManager: React.FC<SubjectManagerProps> = ({
     if (!newSubject.name.trim()) return;
     setIsLoading(true);
     try {
-      await addSubjectProp(newSubject.name, newSubject.color);
+      await addSubjectProp({ name: newSubject.name, color: newSubject.color });
       setNewSubject({ name: "", color: "#3B82F6" });
       setIsOpen(false);
       toast.success(`${newSubject.name} successfully added.`);

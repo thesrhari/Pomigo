@@ -22,6 +22,7 @@ import NavBarProvider from "@/components/navbar/NavBarProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PreviewProvider } from "@/components/PreviewProvider";
 import PreviewIndicator from "@/components/PreviewIndicator";
+import Providers from "./providers";
 
 // Load all fonts used in themes
 const inter = Inter({
@@ -137,10 +138,11 @@ export default function RootLayout({
 }) {
   return (
     <PreviewProvider>
-      <ThemeProvider>
-        <html lang="en">
-          <body
-            className={`
+      <Providers>
+        <ThemeProvider>
+          <html lang="en">
+            <body
+              className={`
             font-sans
             ${inter.variable}
             ${plusJakartaSans.variable}
@@ -159,12 +161,13 @@ export default function RootLayout({
             ${outfit.variable}
             ${dmSans.variable}
           `}
-          >
-            <NavBarProvider>{children}</NavBarProvider>
-            <PreviewIndicator />
-          </body>
-        </html>
-      </ThemeProvider>
+            >
+              <NavBarProvider>{children}</NavBarProvider>
+              <PreviewIndicator />
+            </body>
+          </html>
+        </ThemeProvider>
+      </Providers>
     </PreviewProvider>
   );
 }

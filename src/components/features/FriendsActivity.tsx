@@ -31,7 +31,6 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
-import { useUser } from "@/lib/hooks/useUser";
 
 // Using a simple time formatting function instead of date-fns
 const formatTimeAgo = (dateString: string): string => {
@@ -277,8 +276,7 @@ function ActivityModal({
 export const FriendsActivity = () => {
   const { activities, loading, error, isDisabled } = useActivityFeed();
   const { friends } = useFriends();
-  const { user } = useUser();
-  const { isPro, isLoading: isProLoading } = useProStatus(user || null);
+  const { isPro, isLoading: isProLoading } = useProStatus();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const renderContent = () => {
@@ -349,7 +347,7 @@ export const FriendsActivity = () => {
                 <ActivityModal
                   activities={activities}
                   loading={loading}
-                  error={error}
+                  error={!!error}
                   isDisabled={isDisabled}
                   friendCount={friends.length}
                   isPro={isPro}

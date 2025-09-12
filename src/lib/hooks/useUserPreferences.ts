@@ -1,17 +1,19 @@
 // lib/hooks/useUserPreferences.ts
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/hooks/useUser";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { Theme } from "@/components/ThemeProvider";
+import { useEffect, useState } from "react";
 
-// Type definitions
+// Type definitions remain the same
 export type TimerStyle = "digital" | "ring" | "progress-bar" | "split-flap";
 
-// Constants for Pro features and defaults
-const proStyles: TimerStyle[] = ["ring", "progress-bar"];
+// Constants remain the same
+const proStyles: TimerStyle[] = ["ring", "progress-bar", "split-flap"];
 const proThemes: Theme[] = [
-  "doom", // Fixed: removed "ocean" as it's marked as free in ThemesTab
+  "ocean",
+  "doom",
   "cozy",
   "nature",
   "cyberpunk",
@@ -21,185 +23,139 @@ const proThemes: Theme[] = [
 const defaultStyle: TimerStyle = "digital";
 const defaultTheme: Theme = "light";
 
-export function useUserPreferences() {
+interface UserPreferences {
+  timer_style: TimerStyle;
+  theme: Theme;
+}
+
+// --- Fetcher and Updater Functions ---
+const fetchPreferences = async (userId: string): Promise<UserPreferences> => {
   const supabase = createClient();
+  const { data } = await supabase
+    .from("user_preferences")
+    .select("timer_style, theme")
+    .eq("user_id", userId)
+    .single();
+
+  return {
+    timer_style: data?.timer_style || defaultStyle,
+    theme: data?.theme || defaultTheme,
+  };
+};
+
+const updatePreferences = async (
+  userId: string,
+  prefs: Partial<UserPreferences>
+) => {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("user_preferences")
+    .upsert(
+      { user_id: userId, ...prefs, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+
+  if (error) throw new Error(error.message);
+};
+
+// --- The Hook ---
+export function useUserPreferences() {
   const { user } = useUser();
-  const { isPro, isLoading: isProStatusLoading } = useProStatus(user || null);
+  const { isPro, isLoading: isProStatusLoading } = useProStatus();
+  const queryClient = useQueryClient();
 
-  // State for both preferences
-  const [timerStyle, setTimerStyle] = useState<TimerStyle>(defaultStyle);
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  // FIX: Initialize state without accessing localStorage directly.
+  const [localTimerStyle, setLocalTimerStyle] =
+    useState<TimerStyle>(defaultStyle);
+  const [localTheme, setLocalTheme] = useState<Theme>(defaultTheme);
 
+  // FIX: Use useEffect to safely access localStorage on the client.
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "INITIAL_SESSION") {
-        setIsAuthReady(true);
-      }
-    });
+    const storedTimerStyle = localStorage.getItem("timerStyle") as TimerStyle;
+    if (storedTimerStyle) {
+      setLocalTimerStyle(storedTimerStyle);
+    }
+    const storedTheme = localStorage.getItem("theme") as Theme;
+    if (storedTheme) {
+      setLocalTheme(storedTheme);
+    }
+  }, []);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase.auth]);
+  // --- Data Fetching for Authenticated Users ---
+  const { data: dbPreferences, isLoading: isPrefsLoading } = useQuery({
+    queryKey: ["userPreferences", user?.id],
+    queryFn: () => fetchPreferences(user!.id),
+    enabled: !!user,
+  });
 
-  const updatePreferencesInDb = useCallback(
-    async (prefs: { style?: TimerStyle; theme?: Theme }) => {
-      if (!user) return;
-
-      const updates: {
-        user_id: string;
-        timer_style?: TimerStyle;
-        theme?: Theme;
-        updated_at: string;
-      } = {
-        user_id: user.id,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (prefs.style) updates.timer_style = prefs.style;
-      if (prefs.theme) updates.theme = prefs.theme;
-
-      await supabase
-        .from("user_preferences")
-        .upsert(updates, { onConflict: "user_id" });
+  // --- Data Mutation for Authenticated Users ---
+  const { mutate: updateUserPreferences } = useMutation({
+    mutationFn: (newPrefs: Partial<UserPreferences>) =>
+      updatePreferences(user!.id, newPrefs),
+    onSuccess: (data, newPrefs) => {
+      // Update the local cache directly instead of refetching
+      queryClient.setQueryData(
+        ["userPreferences", user?.id],
+        (oldData: UserPreferences | undefined) => {
+          if (oldData) {
+            return {
+              ...oldData,
+              ...newPrefs,
+            };
+          }
+          return {
+            timer_style: newPrefs.timer_style || defaultStyle,
+            theme: newPrefs.theme || defaultTheme,
+          };
+        }
+      );
     },
-    [user, supabase]
-  );
+    onError: (error) => {
+      console.error("Failed to update preferences:", error);
+      // Optionally, show a toast notification to the user
+    },
+  });
 
-  // Main effect for loading, syncing, and validating preferences
+  // --- Preference Validation and Derivation ---
+  let timerStyle = user
+    ? dbPreferences?.timer_style ?? defaultStyle
+    : localTimerStyle;
+  let theme = user ? dbPreferences?.theme ?? defaultTheme : localTheme;
+
+  // When pro status is loaded, validate the preferences for non-pro users
+  if (user && !isProStatusLoading && !isPro) {
+    if (proStyles.includes(timerStyle)) {
+      timerStyle = defaultStyle;
+    }
+    if (proThemes.includes(theme)) {
+      theme = defaultTheme;
+    }
+  }
+
+  // --- Effect to sync validated preferences to localStorage for consistency ---
   useEffect(() => {
-    // Pre-load from local storage before auth is ready to prevent UI flicker
-    if (!isAuthReady) {
-      const localStyle = localStorage.getItem(
-        "timerStyle"
-      ) as TimerStyle | null;
-      if (localStyle) setTimerStyle(localStyle);
-      const localTheme = localStorage.getItem("theme") as Theme | null;
-      if (localTheme) setTheme(localTheme);
-      return;
-    }
+    localStorage.setItem("timerStyle", timerStyle);
+    localStorage.setItem("theme", theme);
+  }, [timerStyle, theme]);
 
-    const syncAndValidate = async () => {
-      setIsLoading(true);
-
-      // Case 1: User is logged out. Use local storage, but revert Pro features.
-      if (!user) {
-        const localStyle = localStorage.getItem(
-          "timerStyle"
-        ) as TimerStyle | null;
-        const validStyle =
-          localStyle && proStyles.includes(localStyle)
-            ? defaultStyle
-            : localStyle || defaultStyle;
-        setTimerStyle(validStyle);
-        localStorage.setItem("timerStyle", validStyle);
-
-        const localTheme = localStorage.getItem("theme") as Theme | null;
-        const validTheme =
-          localTheme && proThemes.includes(localTheme)
-            ? defaultTheme
-            : localTheme || defaultTheme;
-        setTheme(validTheme);
-        localStorage.setItem("theme", validTheme);
-
-        setIsLoading(false);
-        return;
-      }
-
-      // Case 2: User is logged in. Wait for Pro status to load before validation.
-      if (isProStatusLoading) {
-        // Still loading pro status, just load from DB/localStorage without validation
-        const { data: preference } = await supabase
-          .from("user_preferences")
-          .select("timer_style, theme")
-          .eq("user_id", user.id)
-          .single();
-
-        const dbStyle = (preference?.timer_style as TimerStyle) || defaultStyle;
-        const dbTheme = (preference?.theme as Theme) || defaultTheme;
-
-        setTimerStyle(dbStyle);
-        localStorage.setItem("timerStyle", dbStyle);
-        setTheme(dbTheme);
-        localStorage.setItem("theme", dbTheme);
-
-        setIsLoading(false);
-        return;
-      }
-
-      // Case 3: User is logged in and Pro status is loaded. Validate preferences.
-      const { data: preference } = await supabase
-        .from("user_preferences")
-        .select("timer_style, theme")
-        .eq("user_id", user.id)
-        .single();
-
-      let dbStyle = (preference?.timer_style as TimerStyle) || defaultStyle;
-      let dbTheme = (preference?.theme as Theme) || defaultTheme;
-      let needsDbUpdate = false;
-
-      // Validate timer style
-      if (proStyles.includes(dbStyle) && !isPro) {
-        dbStyle = defaultStyle;
-        needsDbUpdate = true;
-      }
-      // Validate theme
-      if (proThemes.includes(dbTheme) && !isPro) {
-        dbTheme = defaultTheme;
-        needsDbUpdate = true;
-      }
-
-      // Apply the validated preferences and sync to local storage
-      setTimerStyle(dbStyle);
-      localStorage.setItem("timerStyle", dbStyle);
-      setTheme(dbTheme);
-      localStorage.setItem("theme", dbTheme);
-
-      // If validation failed, update the DB with the reverted default values
-      if (needsDbUpdate) {
-        await updatePreferencesInDb({ style: dbStyle, theme: dbTheme });
-      }
-
-      setIsLoading(false);
-    };
-
-    syncAndValidate();
-  }, [
-    isAuthReady,
-    user,
-    isPro,
-    isProStatusLoading,
-    supabase,
-    updatePreferencesInDb,
-  ]);
-
-  // Function to apply a new timer style
-  const applyTimerStyle = async (newStyle: TimerStyle) => {
-    if (proStyles.includes(newStyle) && !isPro) {
-      console.warn("Attempted to apply a pro style without pro status.");
-      return;
-    }
-    setTimerStyle(newStyle);
-    localStorage.setItem("timerStyle", newStyle);
+  // --- Public Functions to Apply Changes ---
+  const applyTimerStyle = (newStyle: TimerStyle) => {
     if (user) {
-      await updatePreferencesInDb({ style: newStyle });
+      if (!isPro && proStyles.includes(newStyle)) return;
+      updateUserPreferences({ timer_style: newStyle });
+    } else {
+      if (proStyles.includes(newStyle)) return; // Should not happen with UI controls
+      setLocalTimerStyle(newStyle);
     }
   };
 
-  // Function to apply a new theme
-  const applyTheme = async (newTheme: Theme) => {
-    if (proThemes.includes(newTheme) && !isPro) {
-      console.warn("Attempted to apply a pro theme without pro status.");
-      return;
-    }
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
+  const applyTheme = (newTheme: Theme) => {
     if (user) {
-      await updatePreferencesInDb({ theme: newTheme });
+      if (!isPro && proThemes.includes(newTheme)) return;
+      updateUserPreferences({ theme: newTheme });
+    } else {
+      if (proThemes.includes(newTheme)) return; // Should not happen with UI controls
+      setLocalTheme(newTheme);
     }
   };
 
@@ -208,6 +164,6 @@ export function useUserPreferences() {
     applyTimerStyle,
     theme,
     applyTheme,
-    isLoading: isLoading || isProStatusLoading, // Loading until both auth and pro status are ready
+    isLoading: isPrefsLoading || isProStatusLoading,
   };
 }

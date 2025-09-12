@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useProfile } from "@/lib/hooks/useProfile";
+import { useProfile, Profile } from "@/lib/hooks/useProfile";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,10 +44,10 @@ const formatDuration = (minutes: number) => {
 export default function ProfilePage() {
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
+
   const {
     user,
     profile,
-    setProfile,
     loading,
     saving,
     updateProfile,
@@ -58,19 +58,16 @@ export default function ProfilePage() {
     statsError,
   } = useProfile();
 
-  const { isPro } = useProStatus(user ?? null);
+  // FIX: Added local state to manage form data.
+  const [editableProfile, setEditableProfile] = useState<Profile | null>(null);
 
+  const { isPro } = useProStatus();
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
-
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isEditorOpen, setEditorOpen] = useState(false);
-
-  // Validation states
   const [displayNameError, setDisplayNameError] = useState("");
   const [usernameError, setUsernameError] = useState("");
-
-  // Account deletion states
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [confirmationUsername, setConfirmationUsername] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -81,11 +78,18 @@ export default function ProfilePage() {
     setIsClient(true);
   }, []);
 
+  // FIX: Use useEffect to sync the server state (`profile`) to the local form state (`editableProfile`).
+  useEffect(() => {
+    if (profile) {
+      setEditableProfile(profile);
+    }
+  }, [profile]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-      const maxSize = 5 * 1024 * 1024; // 10MB
+      const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!allowedTypes.includes(file.type)) {
         toast.error(
@@ -111,55 +115,49 @@ export default function ProfilePage() {
     setSelectedImage(null);
   };
 
+  // FIX: `handleInputChange` now updates the local `editableProfile` state.
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    if (profile) {
+    if (editableProfile) {
       if (id === "username") {
         const sanitizedValue = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
-        setProfile({ ...profile, [id]: sanitizedValue });
+        setEditableProfile({ ...editableProfile, [id]: sanitizedValue });
       } else {
-        setProfile({ ...profile, [id]: value });
+        setEditableProfile({ ...editableProfile, [id]: value });
       }
     }
   };
 
+  // FIX: `handleSaveChanges` now validates and sends the local `editableProfile` state.
   const handleSaveChanges = async () => {
-    if (!profile || !user) return;
+    if (!editableProfile || !user) return;
 
-    // Reset previous errors
     setDisplayNameError("");
     setUsernameError("");
 
-    // --- Validation Logic ---
     let isValid = true;
-    if (profile.display_name.trim().length < 3) {
+    if (editableProfile.display_name.trim().length < 3) {
       setDisplayNameError("Display name must be at least 3 characters.");
       isValid = false;
     }
-    if (profile.username.trim().length < 3) {
+    if (editableProfile.username.trim().length < 3) {
       setUsernameError("Username must be at least 3 characters.");
       isValid = false;
     }
 
     if (!isValid) {
-      return; // Stop if validation fails
+      return;
     }
 
     try {
-      // Check if username is taken, but only if it has been changed
-      const { data: originalProfile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-
-      if (originalProfile && originalProfile.username !== profile.username) {
+      // Check if username has been changed
+      if (profile && profile.username !== editableProfile.username) {
         const { data: existingUser } = await supabase
           .from("profiles")
           .select("id")
-          .eq("username", profile.username)
+          .eq("username", editableProfile.username.trim())
           .single();
 
         if (existingUser) {
@@ -169,11 +167,10 @@ export default function ProfilePage() {
         }
       }
 
-      // If all checks pass, proceed with the update
       await updateProfile({
-        display_name: profile.display_name.trim(),
-        username: profile.username.trim(),
-        bio: profile.bio.trim(),
+        display_name: editableProfile.display_name.trim(),
+        username: editableProfile.username.trim(),
+        bio: editableProfile.bio.trim(),
       });
     } catch (error) {
       toast.error("Failed to update profile.");
@@ -185,25 +182,19 @@ export default function ProfilePage() {
     router.push("/subscription");
   };
 
-  // 1. REMOVE the entire handleCheckout function from this file
-
   const handleDeleteAccount = async () => {
     if (!user || !profile) return;
-
     setIsDeleting(true);
-
     try {
       const response = await fetch("/api/delete-account", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),
       });
-
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "Failed to delete account");
       }
-
       toast.success("Your account has been successfully deleted.");
       await supabase.auth.signOut();
       router.push("/");
@@ -229,7 +220,8 @@ export default function ProfilePage() {
     setConfirmationUsername("");
   };
 
-  if (!isClient || loading) {
+  // FIX: Wait for `editableProfile` to be populated before rendering the main component.
+  if (!isClient || loading || !editableProfile) {
     return <ProfilePageSkeleton />;
   }
 
@@ -288,7 +280,6 @@ export default function ProfilePage() {
         onSave={handleSaveCroppedImage}
       />
 
-      {/* Account Deletion Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -404,9 +395,10 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="display_name">Display Name</Label>
+                    {/* FIX: Bind value to local state `editableProfile` */}
                     <Input
                       id="display_name"
-                      value={profile.display_name}
+                      value={editableProfile.display_name}
                       onChange={handleInputChange}
                       className={displayNameError ? "border-destructive" : ""}
                     />
@@ -418,9 +410,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
+                    {/* FIX: Bind value to local state `editableProfile` */}
                     <Input
                       id="username"
-                      value={profile.username}
+                      value={editableProfile.username}
                       onChange={handleInputChange}
                       className={usernameError ? "border-destructive" : ""}
                     />
@@ -442,10 +435,11 @@ export default function ProfilePage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
+                  {/* FIX: Bind value to local state `editableProfile` */}
                   <Textarea
                     id="bio"
                     placeholder="Tell your study buddies about yourself..."
-                    value={profile.bio || ""}
+                    value={editableProfile.bio || ""}
                     onChange={handleInputChange}
                     className="min-h-[120px] placeholder:text-muted-foreground/60"
                   />
@@ -526,7 +520,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Activity Feed Setting Card */}
             <Card>
               <CardHeader>
                 <CardTitle>Settings</CardTitle>

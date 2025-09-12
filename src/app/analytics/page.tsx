@@ -8,7 +8,6 @@ import { OverviewTab } from "./tabs/OverviewTab";
 import { ActivityTab } from "./tabs/ActivityTab";
 import { InsightsTab } from "./tabs/InsightsTab";
 import { Sun, Moon } from "lucide-react";
-import { useUser } from "@/lib/hooks/useUser";
 
 // --- HELPER FUNCTIONS (Unchanged) ---
 export const formatHour = (hour: number) => {
@@ -19,7 +18,6 @@ export const formatHour = (hour: number) => {
 
 // --- MAIN PAGE COMPONENT ---
 export default function AnalyticsPage() {
-  const { user } = useUser();
   const [dateFilter, setDateFilter] = useState<DateFilter>({ type: "today" });
   const [contributionYear, setContributionYear] = useState<number>(
     new Date().getFullYear()
@@ -76,7 +74,6 @@ export default function AnalyticsPage() {
         </TabsList>
         <TabsContent value="overview">
           <OverviewTab
-            user={user || null}
             data={data}
             dateFilter={dateFilter}
             setDateFilter={setDateFilter}

@@ -1,6 +1,5 @@
 // hooks/use-friends.ts
-import useSWR, { useSWRConfig } from "swr";
-import useSWRMutation from "swr/mutation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { FriendsService } from "@/lib/friends-service";
 import type { SearchResult } from "@/types/friends";
@@ -8,127 +7,139 @@ import type { SearchResult } from "@/types/friends";
 // Initialize the FriendsService
 const friendsService = new FriendsService();
 
-// Define the keys for our SWR cache. This helps in easy revalidation.
-const SWR_KEYS = {
-  FRIENDS: "friends",
-  INCOMING_REQUESTS: "incoming_requests",
-  OUTGOING_REQUESTS: "outgoing_requests",
-  BLOCKED_USERS: "blocked_users",
-};
-
-// A multi-fetcher function to fetch all data in parallel
-const multiFetcher = async () => {
-  const [friends, incomingRequests, outgoingRequests, blockedUsers] =
-    await Promise.all([
-      friendsService.getFriends(),
-      friendsService.getIncomingRequests(),
-      friendsService.getOutgoingRequests(),
-      friendsService.getBlockedUsers(),
-    ]);
-
-  return {
-    [SWR_KEYS.FRIENDS]: friends,
-    [SWR_KEYS.INCOMING_REQUESTS]: incomingRequests,
-    [SWR_KEYS.OUTGOING_REQUESTS]: outgoingRequests,
-    [SWR_KEYS.BLOCKED_USERS]: blockedUsers,
-  };
+// Define the keys for our TanStack Query cache.
+// Using 'as const' makes these readonly tuples for better type-safety.
+export const queryKeys = {
+  all: ["friends-data"] as const,
+  friends: () => [...queryKeys.all, "friends"] as const,
+  incoming: () => [...queryKeys.all, "incoming_requests"] as const,
+  outgoing: () => [...queryKeys.all, "outgoing_requests"] as const,
+  blocked: () => [...queryKeys.all, "blocked_users"] as const,
 };
 
 export function useFriends() {
-  const { mutate } = useSWRConfig();
+  const queryClient = useQueryClient();
 
-  // Fetch all data using a single useSWR hook with multiple keys
-  const { data, error, isLoading } = useSWR(
-    Object.values(SWR_KEYS),
-    multiFetcher
-  );
+  // Fetch all friend-related data in parallel using separate useQuery hooks
+  const { data: friendsData, isLoading: isLoadingFriends } = useQuery({
+    queryKey: queryKeys.friends(),
+    queryFn: () => friendsService.getFriends(),
+  });
 
-  // Function to revalidate all friend-related data
-  const refreshData = useCallback(() => {
-    mutate(Object.values(SWR_KEYS));
-  }, [mutate]);
-
-  const handleMutation = useCallback(
-    async (mutationFn: () => Promise<any>) => {
-      const result = await mutationFn();
-      if (result.success) {
-        refreshData();
-      }
-      return result;
-    },
-    [refreshData]
-  );
-
-  const sendFriendRequest = useCallback(
-    (username: string) =>
-      handleMutation(() => friendsService.sendFriendRequest(username)),
-    [handleMutation]
-  );
-
-  const acceptFriendRequest = useCallback(
-    (relationshipId: string) =>
-      handleMutation(() => friendsService.acceptFriendRequest(relationshipId)),
-    [handleMutation]
-  );
-
-  const declineFriendRequest = useCallback(
-    (relationshipId: string) =>
-      handleMutation(() => friendsService.declineFriendRequest(relationshipId)),
-    [handleMutation]
-  );
-
-  const cancelFriendRequest = useCallback(
-    (relationshipId: string) =>
-      handleMutation(() => friendsService.cancelFriendRequest(relationshipId)),
-    [handleMutation]
-  );
-
-  const removeFriend = useCallback(
-    (relationshipId: string) =>
-      handleMutation(() => friendsService.removeFriend(relationshipId)),
-    [handleMutation]
-  );
-
-  const blockUser = useCallback(
-    (userId: string) => handleMutation(() => friendsService.blockUser(userId)),
-    [handleMutation]
-  );
-
-  const unblockUser = useCallback(
-    (relationshipId: string) =>
-      handleMutation(() => friendsService.unblockUser(relationshipId)),
-    [handleMutation]
-  );
-
-  // Use useSWRMutation for the on-demand search functionality
-  const { trigger: searchUsers, isMutating: isSearching } = useSWRMutation(
-    "user_search",
-    async (_, { arg }: { arg: string }): Promise<SearchResult[]> => {
-      try {
-        return await friendsService.searchUsers(arg);
-      } catch (err) {
-        console.error("Error searching users:", err);
-        return [];
-      }
+  const { data: incomingRequestsData, isLoading: isLoadingIncoming } = useQuery(
+    {
+      queryKey: queryKeys.incoming(),
+      queryFn: () => friendsService.getIncomingRequests(),
     }
   );
 
+  const { data: outgoingRequestsData, isLoading: isLoadingOutgoing } = useQuery(
+    {
+      queryKey: queryKeys.outgoing(),
+      queryFn: () => friendsService.getOutgoingRequests(),
+    }
+  );
+
+  const { data: blockedUsersData, isLoading: isLoadingBlocked } = useQuery({
+    queryKey: queryKeys.blocked(),
+    queryFn: () => friendsService.getBlockedUsers(),
+  });
+
+  // Generic mutation handler to invalidate relevant queries on success
+  const useFriendMutation = <TData = unknown, TVariables = void>(
+    mutationFn: (variables: TVariables) => Promise<TData>,
+    // CORRECTED TYPE: Now correctly accepts readonly tuples from queryKeys
+    queriesToInvalidate: ReadonlyArray<Readonly<unknown[]>>
+  ) => {
+    return useMutation({
+      mutationFn,
+      onSuccess: () => {
+        // Invalidate each query key passed in
+        return Promise.all(
+          queriesToInvalidate.map((key) =>
+            queryClient.invalidateQueries({ queryKey: key })
+          )
+        );
+      },
+    });
+  };
+
+  // Mutations for various friend actions
+  const sendFriendRequestMutation = useFriendMutation(
+    (username: string) => friendsService.sendFriendRequest(username),
+    [queryKeys.outgoing()]
+  );
+
+  const acceptFriendRequestMutation = useFriendMutation(
+    (relationshipId: string) =>
+      friendsService.acceptFriendRequest(relationshipId),
+    [queryKeys.friends(), queryKeys.incoming()]
+  );
+
+  const declineFriendRequestMutation = useFriendMutation(
+    (relationshipId: string) =>
+      friendsService.declineFriendRequest(relationshipId),
+    [queryKeys.incoming()]
+  );
+
+  const cancelFriendRequestMutation = useFriendMutation(
+    (relationshipId: string) =>
+      friendsService.cancelFriendRequest(relationshipId),
+    [queryKeys.outgoing()]
+  );
+
+  const removeFriendMutation = useFriendMutation(
+    (relationshipId: string) => friendsService.removeFriend(relationshipId),
+    [queryKeys.friends()]
+  );
+
+  const blockUserMutation = useFriendMutation(
+    (userId: string) => friendsService.blockUser(userId),
+    [
+      queryKeys.blocked(),
+      queryKeys.friends(),
+      queryKeys.incoming(),
+      queryKeys.outgoing(),
+    ]
+  );
+
+  const unblockUserMutation = useFriendMutation(
+    (relationshipId: string) => friendsService.unblockUser(relationshipId),
+    [queryKeys.blocked()]
+  );
+
+  // Mutation for on-demand user search
+  const searchUsersMutation = useMutation({
+    mutationFn: (searchTerm: string): Promise<SearchResult[]> => {
+      return friendsService.searchUsers(searchTerm);
+    },
+  });
+
+  // Function to manually refresh all friend-related data
+  const refreshData = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: queryKeys.all });
+  }, [queryClient]);
+
   return {
-    friends: data?.[SWR_KEYS.FRIENDS] ?? [],
-    incomingRequests: data?.[SWR_KEYS.INCOMING_REQUESTS] ?? [],
-    outgoingRequests: data?.[SWR_KEYS.OUTGOING_REQUESTS] ?? [],
-    blockedUsers: data?.[SWR_KEYS.BLOCKED_USERS] ?? [],
-    isLoading,
-    isSearching,
-    error,
-    sendFriendRequest,
-    acceptFriendRequest,
-    declineFriendRequest,
-    cancelFriendRequest,
-    removeFriend,
-    blockUser,
-    unblockUser,
-    searchUsers,
+    friends: friendsData ?? [],
+    incomingRequests: incomingRequestsData ?? [],
+    outgoingRequests: outgoingRequestsData ?? [],
+    blockedUsers: blockedUsersData ?? [],
+    isLoading:
+      isLoadingFriends ||
+      isLoadingIncoming ||
+      isLoadingOutgoing ||
+      isLoadingBlocked,
+    isSearching: searchUsersMutation.isPending,
+    // Expose mutation functions to be called from components
+    sendFriendRequest: sendFriendRequestMutation.mutateAsync,
+    acceptFriendRequest: acceptFriendRequestMutation.mutateAsync,
+    declineFriendRequest: declineFriendRequestMutation.mutateAsync,
+    cancelFriendRequest: cancelFriendRequestMutation.mutateAsync,
+    removeFriend: removeFriendMutation.mutateAsync,
+    blockUser: blockUserMutation.mutateAsync,
+    unblockUser: unblockUserMutation.mutateAsync,
+    searchUsers: searchUsersMutation.mutateAsync,
     refreshData,
   };
 }

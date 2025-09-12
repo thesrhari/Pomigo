@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { DateFilter } from "@/lib/hooks/useAnalyticsData";
@@ -16,7 +15,6 @@ import { PricingModal } from "@/components/PricingModal";
 import { getCurrentDateForType } from "@/utils/client/date";
 
 interface FilterableContentProps {
-  user: User | null;
   data: {
     totalStudyTime: number;
     totalStudySessions: number;
@@ -31,12 +29,11 @@ interface FilterableContentProps {
 }
 
 export const FilterableContent = ({
-  user,
   data,
   filter,
   setFilter,
 }: FilterableContentProps) => {
-  const { isPro, isLoading } = useProStatus(user);
+  const { isPro, isLoading } = useProStatus();
   const {
     totalStudyTime,
     totalStudySessions,

@@ -1,8 +1,8 @@
-import useSWR from "swr";
+// lib/hooks/useProStatus.ts
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useUser } from "@/lib/hooks/useUser";
 
-// The Subscription interface can be kept for type safety within the fetcher.
 export interface Subscription {
   user_id: string;
   subscription_id: string;
@@ -19,12 +19,10 @@ interface UseProStatusReturn {
   isLoading: boolean;
 }
 
-const fetcher = async (
-  key: string,
+const fetchSubscription = async (
   userId: string
 ): Promise<Subscription | null> => {
   const supabase = createClient();
-
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
@@ -32,21 +30,30 @@ const fetcher = async (
     .single();
 
   if (error) {
-    // If no subscription is found, return null instead of throwing an error.
+    // If no row is found, Supabase returns an error.
+    // We'll treat this as "no active subscription" and return null.
     if (error.code === "PGRST116") {
       return null;
     }
-    throw error;
+    // For other errors, we should throw to let React Query handle it.
+    throw new Error(error.message);
   }
 
   return data;
 };
 
-export const useProStatus = (user: User | null): UseProStatusReturn => {
-  const { data: subscription, isLoading } = useSWR(
-    user ? ["subscription", user.id] : null,
-    ([, userId]) => fetcher("subscription", userId)
-  );
+export const useProStatus = (): UseProStatusReturn => {
+  const { user } = useUser();
+
+  const { data: subscription, isLoading } = useQuery({
+    // The query key is an array that uniquely identifies this query.
+    // Including the user's ID ensures the data is refetched if the user changes.
+    queryKey: ["subscription", user?.id],
+    // The query function to fetch the data.
+    queryFn: () => fetchSubscription(user!.id),
+    // The query will only execute if a user is logged in.
+    enabled: !!user,
+  });
 
   const isPro =
     !!subscription &&

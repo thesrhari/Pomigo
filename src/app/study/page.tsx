@@ -448,7 +448,7 @@ export default function PomodoroPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user && newSettings) {
-        await updatePomodoroSettings(newSettings, user.id);
+        await updatePomodoroSettings(newSettings);
       }
     } catch (err) {
       console.error("Error updating pomodoro settings:", err);
@@ -526,7 +526,7 @@ export default function PomodoroPage() {
           <div className="text-destructive text-lg font-medium">
             An Error Occurred
           </div>
-          <p className="text-muted-foreground">{error}</p>
+          <p className="text-muted-foreground">{`${error}`}</p>
           <Button onClick={() => window.location.reload()} variant="outline">
             Retry
           </Button>

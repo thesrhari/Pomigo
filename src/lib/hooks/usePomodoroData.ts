@@ -1,4 +1,4 @@
-import useSWR, { useSWRConfig } from "swr";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "../supabase/client";
 import { useUser } from "./useUser";
 
@@ -24,7 +24,7 @@ interface PomodoroSettings {
 // Initialize Supabase client
 const supabase = createClient();
 
-// Fetcher functions for SWR
+// Fetcher functions for TanStack Query
 const fetchSubjects = async (userId: string): Promise<Subject[]> => {
   // First get all subjects
   const { data: subjectsData, error: subjectsError } = await supabase
@@ -72,10 +72,12 @@ const fetchPomodoroSettings = async (
     )
     .eq("user_id", userId)
     .single();
+
   if (error) {
     console.error("Error fetching pomodoro settings:", error);
     throw error;
   }
+
   return {
     focusTime: data.focus_duration,
     shortBreak: data.short_break,
@@ -89,44 +91,64 @@ const fetchPomodoroSettings = async (
 };
 
 export function usePomodoroData() {
-  const { mutate } = useSWRConfig();
-  const { userId, isLoading: isUserLoading } = useUser();
+  const queryClient = useQueryClient();
+  const { user, isLoading: isUserLoading } = useUser();
+  const userId = user?.id;
 
   const {
     data: subjects,
     error: subjectsError,
     isLoading: subjectsLoading,
-  } = useSWR<Subject[]>(userId ? ["subjects", userId] : null, () =>
-    fetchSubjects(userId!)
-  );
+  } = useQuery<Subject[]>({
+    queryKey: ["subjects", userId],
+    queryFn: () => fetchSubjects(userId!),
+    enabled: !!userId,
+  });
 
   const {
     data: pomodoroSettings,
     error: pomodoroError,
     isLoading: pomodoroLoading,
-  } = useSWR<PomodoroSettings>(
-    userId ? ["pomodoro_settings", userId] : null,
-    () => fetchPomodoroSettings(userId!)
-  );
+  } = useQuery<PomodoroSettings>({
+    queryKey: ["pomodoro_settings", userId],
+    queryFn: () => fetchPomodoroSettings(userId!),
+    enabled: !!userId,
+  });
 
-  const addSubject = async (name: string, color: string) => {
-    try {
+  const addSubjectMutation = useMutation({
+    mutationFn: async (newSubject: { name: string; color: string }) => {
       if (!userId) throw new Error("User not found");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("subjects")
-        .insert({ user_id: userId, subject_name: name, color: color });
-      if (error) throw error;
-      mutate(["subjects", userId]);
-    } catch (err) {
-      throw err;
-    }
-  };
+        .insert({
+          user_id: userId,
+          subject_name: newSubject.name,
+          color: newSubject.color,
+        })
+        .select()
+        .single();
 
-  const updateSubjects = async (subject: Subject) => {
-    try {
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (newSubjectData) => {
+      const newSubject: Subject = {
+        id: newSubjectData.id,
+        name: newSubjectData.subject_name,
+        color: newSubjectData.color,
+        totalHours: 0,
+      };
+
+      queryClient.setQueryData<Subject[]>(["subjects", userId], (oldData) =>
+        oldData ? [...oldData, newSubject] : [newSubject]
+      );
+    },
+  });
+
+  const updateSubjectsMutation = useMutation({
+    mutationFn: async (subject: Subject) => {
       if (!userId) throw new Error("User not found");
 
-      // Get the original subject name before updating
       const { data: originalSubject, error: fetchError } = await supabase
         .from("subjects")
         .select("subject_name")
@@ -134,74 +156,74 @@ export function usePomodoroData() {
         .single();
 
       if (fetchError) throw fetchError;
-
       const oldSubjectName = originalSubject.subject_name;
 
-      // Update the subject
       const { error: updateError } = await supabase
         .from("subjects")
         .update({ subject_name: subject.name, color: subject.color })
         .eq("id", subject.id);
+
       if (updateError) throw updateError;
 
-      // Update the sessions with the new subject name
-      const { error: updateSessionsError } = await supabase
-        .from("sessions")
-        .update({ subject: subject.name })
-        .eq("user_id", userId)
-        .eq("subject", oldSubjectName);
+      if (oldSubjectName !== subject.name) {
+        const { error: updateSessionsError } = await supabase
+          .from("sessions")
+          .update({ subject: subject.name })
+          .eq("user_id", userId)
+          .eq("subject", oldSubjectName);
+        if (updateSessionsError) throw updateSessionsError;
+      }
+      return subject;
+    },
+    onSuccess: (updatedSubject) => {
+      queryClient.setQueryData<Subject[]>(["subjects", userId], (oldData) =>
+        oldData
+          ? oldData.map((subject) =>
+              subject.id === updatedSubject.id ? updatedSubject : subject
+            )
+          : []
+      );
+    },
+  });
 
-      if (updateSessionsError) throw updateSessionsError;
-
-      mutate(["subjects", userId]);
-    } catch (err) {
-      console.error("Error updating subjects:", err);
-      throw err;
-    }
-  };
-
-  const deleteSubject = async (subjectId: number) => {
-    try {
+  const deleteSubjectMutation = useMutation({
+    mutationFn: async (subjectId: number) => {
       if (!userId) throw new Error("User not found");
 
-      // Get the name of the subject to be deleted
       const { data: subjectToDelete, error: fetchError } = await supabase
         .from("subjects")
         .select("subject_name")
         .eq("id", subjectId)
         .single();
-
       if (fetchError) throw fetchError;
 
       const subjectNameToDelete = subjectToDelete.subject_name;
 
-      // Update sessions related to the deleted subject
       const { error: updateError } = await supabase
         .from("sessions")
         .update({ subject: "Uncategorized" })
         .eq("user_id", userId)
         .eq("subject", subjectNameToDelete);
-
       if (updateError) throw updateError;
 
-      // Delete the subject
       const { error: deleteError } = await supabase
         .from("subjects")
         .delete()
         .eq("id", subjectId);
       if (deleteError) throw deleteError;
-      mutate(["subjects", userId]);
-    } catch (err) {
-      console.error("Error deleting subject:", err);
-      throw err;
-    }
-  };
 
-  const updatePomodoroSettings = async (
-    newSettings: PomodoroSettings,
-    userId: string
-  ) => {
-    try {
+      return subjectId;
+    },
+    onSuccess: (subjectId) => {
+      queryClient.setQueryData<Subject[]>(["subjects", userId], (oldData) =>
+        oldData ? oldData.filter((subject) => subject.id !== subjectId) : []
+      );
+    },
+  });
+
+  const updatePomodoroSettingsMutation = useMutation({
+    mutationFn: async (newSettings: PomodoroSettings) => {
+      if (!userId) throw new Error("User not found");
       const { error } = await supabase.from("pomodoro_settings").upsert({
         user_id: userId,
         focus_duration: newSettings.focusTime,
@@ -213,22 +235,23 @@ export function usePomodoroData() {
         sound_enabled: newSettings.soundEnabled,
         selected_sound_id: newSettings.selectedSoundId,
       });
+
       if (error) throw error;
-      mutate(["pomodoro_settings", userId]);
-    } catch (err) {
-      console.error("Error updating pomodoro settings:", err);
-      throw err;
-    }
-  };
+      return newSettings;
+    },
+    onSuccess: (newSettings) => {
+      queryClient.setQueryData(["pomodoro_settings", userId], newSettings);
+    },
+  });
 
   return {
     subjects: subjects || [],
     pomodoroSettings,
     loading: isUserLoading || subjectsLoading || pomodoroLoading,
     error: subjectsError || pomodoroError,
-    addSubject,
-    updateSubjects,
-    deleteSubject,
-    updatePomodoroSettings,
+    addSubject: addSubjectMutation.mutateAsync,
+    updateSubjects: updateSubjectsMutation.mutateAsync,
+    deleteSubject: deleteSubjectMutation.mutateAsync,
+    updatePomodoroSettings: updatePomodoroSettingsMutation.mutateAsync,
   };
 }

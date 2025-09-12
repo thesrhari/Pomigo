@@ -1,31 +1,30 @@
 "use client";
 
-import useSWR from "swr";
-import { createClient } from "@/lib/supabase/client";
 import {
-  startOfWeek,
-  endOfWeek,
   eachDayOfInterval,
+  endOfWeek,
   format,
   parseISO,
+  startOfWeek,
 } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { createClient } from "@/lib/supabase/client";
 import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
+import { useUser } from "@/lib/hooks/useUser";
 
 const supabase = createClient();
 
-// Fetcher function to get user data
-const userFetcher = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+// Fetcher function for weekly chart data, now uses TanStack Query's queryFn context
+const weeklyChartFetcher = async ({
+  queryKey,
+}: {
+  queryKey: (string | undefined)[];
+}) => {
+  const [, userId] = queryKey;
+  if (!userId) {
     throw new Error("User not authenticated.");
   }
-  return user;
-};
 
-// Fetcher function for weekly chart data, dependent on the user ID
-const weeklyChartFetcher = async ([, userId]: [string, string]) => {
   const now = new Date();
   const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 });
   const endOfThisWeek = endOfWeek(now, { weekStartsOn: 1 });
@@ -71,15 +70,22 @@ const weeklyChartFetcher = async ([, userId]: [string, string]) => {
 };
 
 export function useDashboard() {
-  // Use SWR to fetch the user data
-  const { data: user, error: userError } = useSWR("user", userFetcher);
+  const {
+    user,
+    userId,
+    isLoading: isUserLoading,
+    error: userError,
+  } = useUser();
 
-  // Use SWR for weekly data, which depends on the user being available
   const {
     data: weeklyData,
     error: weeklyDataError,
     isLoading: isWeeklyDataLoading,
-  } = useSWR(user ? ["weeklyData", user.id] : null, weeklyChartFetcher);
+  } = useQuery({
+    queryKey: ["weeklyData", userId],
+    queryFn: weeklyChartFetcher,
+    enabled: !!userId, // The query will not run until the userId is available. [5, 7, 11]
+  });
 
   const {
     data: statsData,
@@ -89,10 +95,8 @@ export function useDashboard() {
 
   const userName = user?.user_metadata?.full_name || "there";
 
-  // Combine loading and error states from all hooks
-  const isLoading =
-    statsLoading || isWeeklyDataLoading || (!user && !userError);
-  const error = statsError || userError || weeklyDataError;
+  const isLoading = isUserLoading || isWeeklyDataLoading || statsLoading;
+  const error = userError || weeklyDataError || statsError;
 
   return {
     userName,

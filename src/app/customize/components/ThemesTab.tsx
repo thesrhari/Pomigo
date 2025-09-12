@@ -11,7 +11,6 @@ import { Crown, Check, Lock, Eye } from "lucide-react";
 import { useTheme, Theme } from "@/components/ThemeProvider";
 import { usePreview } from "@/components/PreviewProvider";
 import { useProStatus } from "@/lib/hooks/useProStatus";
-import { useUser } from "@/lib/hooks/useUser";
 
 interface ThemeOption {
   id: Theme;
@@ -144,8 +143,7 @@ const themeOptions: ThemeOption[] = [
 export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
   const { theme: currentTheme, setTheme } = useTheme();
   const { startPreview } = usePreview();
-  const { user } = useUser();
-  const { isPro } = useProStatus(user || null);
+  const { isPro } = useProStatus();
 
   const handleApplyTheme = (themeId: Theme) => {
     setTheme(themeId);

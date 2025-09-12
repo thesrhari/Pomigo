@@ -1,7 +1,8 @@
 // lib/hooks/useSubscriptionManagement.ts
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { useUser } from "@/lib/hooks/useUser";
 import { toast } from "react-toastify";
 
 export interface SubscriptionDetails {
@@ -30,148 +31,175 @@ export interface Invoice {
 
 const INVOICES_PER_PAGE = 3;
 
-export const useSubscriptionManagement = (user: User | null) => {
-  const [subscription, setSubscription] = useState<SubscriptionDetails | null>(
-    null
-  );
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const [reactivating, setReactivating] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(false);
+// --- Fetcher Functions for useQuery ---
 
+/**
+ * Fetches detailed subscription info for a given user.
+ * It combines data from 'subscriptions' and 'payments' tables.
+ */
+const fetchSubscriptionDetails = async (
+  userId: string
+): Promise<SubscriptionDetails | null> => {
   const supabase = createClient();
+  const { data: subData, error: subError } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
 
-  const fetchSubscriptionDetails = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data: subscriptionData, error: subscriptionError } =
-        await supabase
-          .from("subscriptions")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
+  // Throw any error other than "no rows found"
+  if (subError && subError.code !== "PGRST116") throw subError;
+  if (!subData) return null;
 
-      if (subscriptionError && subscriptionError.code !== "PGRST116") {
-        throw subscriptionError;
-      }
+  // If a subscription is cancelled and its end date has passed,
+  // the user is effectively on the Free plan.
+  const isEffectivelyFree =
+    subData.status === "cancelled" &&
+    subData.end_date &&
+    new Date(subData.end_date) <= new Date();
 
-      if (subscriptionData) {
-        // If a subscription is cancelled and its access period has ended,
-        // treat the user as being on the Free plan by setting subscription to null.
-        const isEffectivelyFree =
-          subscriptionData.status === "cancelled" &&
-          subscriptionData.end_date &&
-          new Date(subscriptionData.end_date) <= new Date();
+  if (isEffectivelyFree) return null;
 
-        if (isEffectivelyFree) {
-          setSubscription(null);
-        } else {
-          // For all other cases, fetch the latest payment details.
-          const { data: paymentData, error: paymentError } = await supabase
-            .from("payments")
-            .select("amount, currency, card_last_four, card_network")
-            .eq("subscription_id", subscriptionData.subscription_id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
+  // For active or grace-period subscriptions, get the latest payment details.
+  const { data: paymentData } = await supabase
+    .from("payments")
+    .select("amount, currency, card_last_four, card_network")
+    .eq("subscription_id", subData.subscription_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
 
-          if (paymentError && paymentError.code !== "PGRST116") {
-            throw paymentError;
-          }
+  return {
+    ...subData,
+    amount: paymentData?.amount || null,
+    currency: paymentData?.currency || null,
+    card_last_four: paymentData?.card_last_four || null,
+    card_network: paymentData?.card_network || null,
+  };
+};
 
-          setSubscription({
-            ...subscriptionData,
-            amount: paymentData?.amount || null,
-            currency: paymentData?.currency || null,
-            card_last_four: paymentData?.card_last_four || null,
-            card_network: paymentData?.card_network || null,
-          });
-        }
-      } else {
-        setSubscription(null);
-      }
-    } catch (error) {
-      console.error("Error fetching subscription:", error);
-      toast.error("Failed to load subscription details");
-    } finally {
-      setLoading(false);
-    }
-  }, [user, supabase]);
-
-  const fetchInvoices = useCallback(
-    async (page: number) => {
-      if (!user) return;
-      setInvoicesLoading(true);
-      try {
-        const response = await fetch(
-          `/api/invoices?page=${page}&limit=${INVOICES_PER_PAGE}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch invoices");
-        }
-        const { invoices: fetchedInvoices, hasNextPage: newHasNextPage } =
-          await response.json();
-        setInvoices(fetchedInvoices || []);
-        setHasNextPage(newHasNextPage);
-      } catch (error) {
-        console.error("Error fetching invoices:", error);
-        toast.error("Failed to load invoices");
-      } finally {
-        setInvoicesLoading(false);
-      }
-    },
-    [user]
+/**
+ * Fetches a paginated list of invoices from the API.
+ */
+const fetchInvoices = async (
+  page: number
+): Promise<{ invoices: Invoice[]; hasNextPage: boolean }> => {
+  const response = await fetch(
+    `/api/invoices?page=${page}&limit=${INVOICES_PER_PAGE}`
   );
+  if (!response.ok) {
+    throw new Error("Failed to fetch invoices");
+  }
+  return response.json();
+};
 
-  const cancelSubscription = async () => {
-    if (!subscription?.subscription_id) return;
-    setCancelling(true);
-    try {
-      const response = await fetch("/api/cancel-subscription", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriptionId: subscription.subscription_id }),
-      });
-      if (!response.ok) throw new Error("Failed to cancel subscription");
-      toast.info("Subscription scheduled for cancellation");
-      await fetchSubscriptionDetails();
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      toast.error("Failed to cancel subscription");
-    } finally {
-      setCancelling(false);
-    }
-  };
+// --- Mutation Functions for useMutation ---
 
-  const reactivateSubscription = async () => {
-    if (!subscription?.subscription_id) return;
-    setReactivating(true);
-    try {
-      const response = await fetch("/api/reactivate-subscription", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriptionId: subscription.subscription_id }),
-      });
-      if (!response.ok) throw new Error("Failed to reactivate subscription");
-      toast.success("Subscription reactivated successfully");
-      await fetchSubscriptionDetails();
-    } catch (error) {
-      console.error("Error reactivating subscription:", error);
-      toast.error("Failed to reactivate subscription");
-    } finally {
-      setReactivating(false);
-    }
-  };
+const cancelApiCall = async (subscriptionId: string) => {
+  const response = await fetch("/api/cancel-subscription", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscriptionId }),
+  });
+  if (!response.ok) {
+    // TanStack Query's `useMutation` will catch this error.
+    throw new Error("Server failed to cancel the subscription.");
+  }
+};
+
+const reactivateApiCall = async (subscriptionId: string) => {
+  const response = await fetch("/api/reactivate-subscription", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscriptionId }),
+  });
+  if (!response.ok) {
+    throw new Error("Server failed to reactivate the subscription.");
+  }
+};
+
+// --- The Main Hook ---
+
+export const useSubscriptionManagement = () => {
+  const { user } = useUser();
+  const queryClient = useQueryClient();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // --- Data Fetching using useQuery ---
+
+  const { data: subscription, isLoading: isSubscriptionLoading } = useQuery({
+    queryKey: ["subscriptionDetails", user?.id],
+    queryFn: () => fetchSubscriptionDetails(user!.id),
+    enabled: !!user, // The query will not run until the user is loaded.
+  });
+
+  const { data: invoiceData, isLoading: isInvoicesLoading } = useQuery({
+    queryKey: ["invoices", user?.id, currentPage],
+    queryFn: () => fetchInvoices(currentPage),
+    enabled: !!user,
+    placeholderData: (previousData) => previousData, // Keeps old data visible while fetching new page.
+  });
+
+  // --- Data Mutations using useMutation ---
+
+  const { mutateAsync: cancelSubscription, isPending: isCancelling } =
+    useMutation({
+      mutationFn: () => {
+        if (!subscription?.subscription_id) {
+          throw new Error("No active subscription to cancel.");
+        }
+        return cancelApiCall(subscription.subscription_id);
+      },
+      // --- MODIFIED START ---
+      onSuccess: () => {
+        toast.info("Subscription scheduled for cancellation.");
+        // Manually update the local cache to reflect the change instantly.
+        queryClient.setQueryData(
+          ["subscriptionDetails", user?.id],
+          (oldData: SubscriptionDetails | null | undefined) => {
+            if (!oldData) return null;
+            return {
+              ...oldData,
+              cancel_at_next_billing_date: true, // This is the expected change
+            };
+          }
+        );
+      },
+      // --- MODIFIED END ---
+      onError: (error) => toast.error(error.message),
+    });
+
+  const { mutateAsync: reactivateSubscription, isPending: isReactivating } =
+    useMutation({
+      mutationFn: () => {
+        if (!subscription?.subscription_id) {
+          throw new Error("No subscription to reactivate.");
+        }
+        return reactivateApiCall(subscription.subscription_id);
+      },
+      // --- MODIFIED START ---
+      onSuccess: () => {
+        toast.success("Subscription reactivated successfully.");
+        // Manually update the local cache to reflect the change instantly.
+        queryClient.setQueryData(
+          ["subscriptionDetails", user?.id],
+          (oldData: SubscriptionDetails | null | undefined) => {
+            if (!oldData) return null;
+            return {
+              ...oldData,
+              cancel_at_next_billing_date: false, // This is the expected change
+            };
+          }
+        );
+      },
+      // --- MODIFIED END ---
+      onError: (error) => toast.error(error.message),
+    });
 
   const downloadInvoice = async (transactionId: string) => {
     try {
       const response = await fetch(`/api/invoice/${transactionId}`);
       if (!response.ok) throw new Error("Failed to download invoice");
-
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -187,23 +215,7 @@ export const useSubscriptionManagement = (user: User | null) => {
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      fetchSubscriptionDetails();
-    }
-  }, [user, fetchSubscriptionDetails]);
-
-  useEffect(() => {
-    if (user) {
-      fetchInvoices(currentPage);
-    }
-  }, [user, currentPage, fetchInvoices]);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage > 0) {
-      setCurrentPage(newPage);
-    }
-  };
+  // --- Derived State (calculated from query data) ---
 
   const isActive = subscription?.status === "active";
   const isCancelled = subscription?.status === "cancelled";
@@ -228,11 +240,11 @@ export const useSubscriptionManagement = (user: User | null) => {
 
   return {
     subscription,
-    invoices,
-    loading,
-    invoicesLoading,
-    cancelling,
-    reactivating,
+    invoices: invoiceData?.invoices || [],
+    loading: isSubscriptionLoading,
+    invoicesLoading: isInvoicesLoading,
+    cancelling: isCancelling,
+    reactivating: isReactivating,
     isLifetime,
     isActive,
     isCancelled,
@@ -241,9 +253,8 @@ export const useSubscriptionManagement = (user: User | null) => {
     cancelSubscription,
     reactivateSubscription,
     downloadInvoice,
-    refreshData: fetchSubscriptionDetails,
     currentPage,
-    hasNextPage,
-    handlePageChange,
+    hasNextPage: invoiceData?.hasNextPage || false,
+    handlePageChange: setCurrentPage,
   };
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import useSWR from "swr";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
 export interface PomodoroSound {
@@ -29,9 +29,12 @@ export const useAudioNotifications = () => {
   const {
     data: sounds,
     error,
-    isLoading,
-    mutate,
-  } = useSWR("pomodoro_sounds", fetchSounds);
+    isPending: isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["pomodoro_sounds"],
+    queryFn: fetchSounds,
+  });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -278,6 +281,6 @@ export const useAudioNotifications = () => {
     stopSound,
     isPlaying,
     currentPlayingId,
-    refetchSounds: mutate,
+    refetchSounds: refetch,
   };
 };

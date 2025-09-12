@@ -1,7 +1,10 @@
-// hooks/use-pomodoro-tracker.ts (Corrected and Final Version)
+// hooks/use-pomodoro-tracker.ts
 import { useEffect, useRef } from "react";
 import { createClient } from "../supabase/client";
 import { ActivityFeedService } from "@/lib/activity-feed-service";
+import { useUser } from "@/lib/hooks/useUser";
+import { useQueryClient } from "@tanstack/react-query";
+import { RawSession } from "@/lib/hooks/useAnalyticsData";
 
 type SessionType = "study" | "short_break" | "long_break";
 
@@ -59,9 +62,10 @@ export function usePomodoroTracker({
   currentSubject,
   sessionType,
 }: UsePomodoroTrackerProps) {
+  const { user } = useUser();
+  const queryClient = useQueryClient();
   const prevSessionTypeRef = useRef<SessionType>(sessionType);
   const wasRunningRef = useRef(timerRunning);
-  // Ref to track the previous timeLeft value to detect skips.
   const prevTimeLeftRef = useRef(timeLeft);
 
   useEffect(() => {
@@ -69,10 +73,7 @@ export function usePomodoroTracker({
       completedSessionType: SessionType
     ) => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) return; // Check if the user is available
 
         let sessionDuration: number;
         switch (completedSessionType) {
@@ -87,11 +88,21 @@ export function usePomodoroTracker({
             break;
         }
 
-        await addCompletedSession(
+        const newSession = await addCompletedSession(
           user.id,
           completedSessionType,
           sessionDuration,
           currentSubject
+        );
+
+        queryClient.setQueryData<RawSession[]>(
+          ["analytics-data", user.id],
+          (oldData) => {
+            // If the cache is empty for some reason, initialize it with the new session
+            if (!oldData) return [newSession];
+            // Otherwise, add the new session to the beginning of the existing array
+            return [newSession, ...oldData];
+          }
         );
       } catch (err) {
         console.error("❌ PomodoroTracker failed to log session:", err);
@@ -106,8 +117,6 @@ export function usePomodoroTracker({
       const wasBreak =
         previousSession === "short_break" || previousSession === "long_break";
 
-      // A break is skipped if its type changes while its timer had more than a second left.
-      // We check the ref's value, which holds the timeLeft from the *previous* render.
       const wasSkipped = wasBreak && prevTimeLeftRef.current > 1;
 
       if (!wasSkipped) {
@@ -115,17 +124,18 @@ export function usePomodoroTracker({
       }
     }
 
-    // Update refs to store the current state for the next render.
     prevSessionTypeRef.current = sessionType;
     wasRunningRef.current = timerRunning;
-    prevTimeLeftRef.current = timeLeft; // Keep track of the last known time
+    prevTimeLeftRef.current = timeLeft;
   }, [
     sessionType,
     timerRunning,
-    timeLeft, // Add timeLeft as a dependency to update the ref
+    timeLeft,
     currentSubject,
     focusDuration,
     shortBreakDuration,
     longBreakDuration,
+    user,
+    queryClient,
   ]);
 }

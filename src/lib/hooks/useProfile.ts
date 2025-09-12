@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import { useAnalyticsData } from "@/lib/hooks/useAnalyticsData";
-import useSWR, { useSWRConfig } from "swr";
+import { useUser } from "./useUser";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export type Profile = {
   username: string;
@@ -22,49 +23,92 @@ export type ProfileStats = {
 
 export function useProfile() {
   const supabase = createClient();
-  const { mutate } = useSWRConfig();
+  const queryClient = useQueryClient();
+  const { user, userId, isLoading: isUserLoading } = useUser();
 
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // Local state for the editable profile data
-  const [profile, setProfile] = useState<Profile | null>(null);
 
-  // SWR hook for fetching the user session
-  const { data: user } = useSWR("user-session", async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.user ?? null;
+  const { data: profile, isLoading: isProfileLoading } =
+    useQuery<Profile | null>({
+      queryKey: ["profile", userId],
+      queryFn: async () => {
+        if (!userId) return null;
+        const { data, error } = await supabase
+          .from("profiles")
+          .select(
+            "username, display_name, avatar_url, bio, activity_feed_enabled"
+          )
+          .eq("id", userId)
+          .single();
+
+        if (error) {
+          toast.error("Error fetching profile. Please try again.");
+          throw error;
+        }
+        return data;
+      },
+      enabled: !!userId,
+    });
+
+  const { mutate: updateProfile, isPending: isSaving } = useMutation({
+    mutationFn: async (updatedProfile: Partial<Profile>) => {
+      if (!userId) throw new Error("User not authenticated");
+      const { error } = await supabase
+        .from("profiles")
+        .update(updatedProfile)
+        .eq("id", userId);
+
+      if (error) throw error;
+      // Pass the updated profile data to onSuccess
+      return updatedProfile;
+    },
+    onSuccess: (updatedProfile) => {
+      // Update the local cache with the new data
+      queryClient.setQueryData(
+        ["profile", userId],
+        (old: Profile | undefined) =>
+          old ? { ...old, ...updatedProfile } : undefined
+      );
+      toast.success("Profile saved successfully!");
+    },
+    onError: (err: any) => {
+      if (err.code === "23505") {
+        toast.error("This username is already taken.");
+      } else {
+        toast.error("Error updating profile. Please try again later.");
+      }
+    },
   });
 
-  // SWR hook for fetching the profile data.
-  // The fetched data is named `fetchedProfile` to distinguish it from the local state.
-  const { data: fetchedProfile, isLoading: profileLoading } = useSWR(
-    user ? ["profile", user.id] : null,
-    async () => {
-      if (!user) return null;
-      const { data, error } = await supabase
+  const { mutate: updateActivityFeedSetting } = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!userId) throw new Error("User not authenticated");
+      const { error } = await supabase
         .from("profiles")
-        .select(
-          "username, display_name, avatar_url, bio, activity_feed_enabled"
-        )
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        toast.error("Error fetching profile. Please try again.");
-        throw error;
-      }
-      return data;
-    }
-  );
-
-  // useEffect to update the local state when the fetched data is available.
-  useEffect(() => {
-    if (fetchedProfile) {
-      setProfile(fetchedProfile);
-    }
-  }, [fetchedProfile]);
+        .update({ activity_feed_enabled: enabled })
+        .eq("id", userId);
+      if (error) throw error;
+      return enabled;
+    },
+    onSuccess: (enabled) => {
+      // Update the local cache with the new setting
+      queryClient.setQueryData(
+        ["profile", userId],
+        (old: Profile | undefined) =>
+          old ? { ...old, activity_feed_enabled: enabled } : undefined
+      );
+      toast.success(
+        enabled
+          ? "Activity feed enabled. Your friends can now see your study activity!"
+          : "Activity feed disabled. Your study activity is now private."
+      );
+    },
+    onError: () => {
+      toast.error(
+        "Failed to update activity feed setting. Please try again later."
+      );
+    },
+  });
 
   const {
     data: stats,
@@ -72,103 +116,34 @@ export function useProfile() {
     error: statsError,
   } = useAnalyticsData({ type: "all-time" }, new Date().getFullYear());
 
-  // The overall loading state depends on fetching the initial profile and stats.
-  const loading = profileLoading || statsLoading;
-
-  const updateProfile = async (updatedProfile: Partial<Profile>) => {
-    if (!user || !profile) return false;
-
-    setSaving(true);
-    const previousProfile = profile;
-
-    // Optimistic UI update on the local state
-    setProfile({ ...profile, ...updatedProfile });
-
-    const { error } = await supabase
-      .from("profiles")
-      .update(updatedProfile)
-      .eq("id", user.id);
-
-    if (error) {
-      // Revert the optimistic update on error
-      setProfile(previousProfile);
-      if (error.code === "23505") {
-        toast.error("This username is already taken.");
-      } else {
-        toast.error("Error updating profile. Please try again later.");
-      }
-      setSaving(false);
-      return false;
-    }
-
-    // Revalidate the SWR data to ensure it's fresh from the server
-    mutate(["profile", user.id]);
-    toast.success("Profile saved successfully!");
-    setSaving(false);
-    return true;
-  };
-
-  const updateActivityFeedSetting = async (enabled: boolean) => {
-    if (!user || !profile) return false;
-
-    const previousProfile = profile;
-    // Optimistic update
-    setProfile({ ...profile, activity_feed_enabled: enabled });
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ activity_feed_enabled: enabled })
-      .eq("id", user.id);
-
-    if (error) {
-      // Revert on error
-      setProfile(previousProfile);
-      toast.error(
-        "Failed to update activity feed setting. Please try again later."
-      );
-      return false;
-    }
-
-    // Revalidate SWR data
-    mutate(["profile", user.id]);
-    toast.success(
-      enabled
-        ? "Activity feed enabled. Your friends can now see your study activity!"
-        : "Activity feed disabled. Your study activity is now private."
-    );
-    return true;
-  };
+  const loading = isUserLoading || isProfileLoading || statsLoading;
 
   const uploadAvatar = async (file: File) => {
-    if (!user) {
+    if (!userId) {
       toast.error("Authentication Error. You are not logged in.");
       return;
     }
     // ... file validation logic ...
     setUploading(true);
     const fileExt = file.name.split(".").pop();
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+    const filePath = `${userId}/${Date.now()}.${fileExt}`;
 
     try {
-      // Delete old avatar if it exists
       if (profile?.avatar_url) {
         const oldPath = profile.avatar_url.split("/").slice(-2).join("/");
-        if (oldPath.startsWith(user.id)) {
+        if (oldPath.startsWith(userId)) {
           await supabase.storage.from("avatars").remove([oldPath]);
         }
       }
-      // Upload new avatar
       const { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(filePath, file);
       if (uploadError) throw uploadError;
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("avatars")
         .getPublicUrl(filePath);
-      // Update the profile with the new URL
       if (urlData?.publicUrl) {
-        await updateProfile({ avatar_url: urlData.publicUrl });
+        updateProfile({ avatar_url: urlData.publicUrl });
         toast.success("Avatar updated successfully!");
       } else {
         throw new Error("Failed to get public URL for uploaded file");
@@ -182,12 +157,11 @@ export function useProfile() {
 
   return {
     user,
-    profile, // Now the state variable
-    setProfile, // Now the state setter
+    profile,
     loading,
-    saving,
+    saving: isSaving,
     updateProfile,
-    updateActivityFeedSetting, // New function for activity feed toggle
+    updateActivityFeedSetting,
     uploading,
     uploadAvatar,
     stats,

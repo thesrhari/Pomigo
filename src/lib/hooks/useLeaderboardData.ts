@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import {
   startOfDay,
@@ -13,6 +13,8 @@ import {
   format,
   isWithinInterval,
 } from "date-fns";
+import { useUser } from "./useUser"; // Assuming useUser is in the same directory
+import { User } from "@supabase/supabase-js";
 
 // Define the shape of a friend's profile and their session data
 export interface LeaderboardFriend {
@@ -33,12 +35,8 @@ export interface LeaderboardFriend {
 
 const supabase = createClient();
 
-// The fetcher function encapsulates the data fetching logic.
-// SWR will call this function to get the data.
-const fetchLeaderboardData = async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// The fetcher function now accepts the user object as a parameter.
+const fetchLeaderboardData = async (user: User) => {
   if (!user) throw new Error("User not authenticated.");
 
   // 1. Get friend relationships
@@ -162,10 +160,12 @@ const fetchLeaderboardData = async () => {
 };
 
 export function useLeaderboardData() {
-  const { data, error, isLoading } = useSWR(
-    "leaderboardData",
-    fetchLeaderboardData
-  );
+  const { user } = useUser();
+  const { data, error, isLoading } = useQuery({
+    queryKey: ["leaderboardData", user?.id],
+    queryFn: () => fetchLeaderboardData(user!),
+    enabled: !!user, // The query will not run until the user is fetched
+  });
 
   return {
     friends: data?.friends || [],
