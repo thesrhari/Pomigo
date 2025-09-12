@@ -58,8 +58,9 @@ export default function ProfilePage() {
     statsError,
   } = useProfile();
 
-  // FIX: Added local state to manage form data.
   const [editableProfile, setEditableProfile] = useState<Profile | null>(null);
+  // FIX: Added new state to track if there are any changes in the form.
+  const [hasChanges, setHasChanges] = useState(false);
 
   const { isPro } = useProStatus();
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
@@ -78,12 +79,22 @@ export default function ProfilePage() {
     setIsClient(true);
   }, []);
 
-  // FIX: Use useEffect to sync the server state (`profile`) to the local form state (`editableProfile`).
   useEffect(() => {
     if (profile) {
       setEditableProfile(profile);
     }
   }, [profile]);
+
+  // FIX: This useEffect hook checks for changes between the original profile and the editable profile.
+  useEffect(() => {
+    if (profile && editableProfile) {
+      const changes =
+        profile.display_name !== editableProfile.display_name ||
+        profile.username !== editableProfile.username ||
+        profile.bio !== editableProfile.bio;
+      setHasChanges(changes);
+    }
+  }, [profile, editableProfile]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,7 +126,6 @@ export default function ProfilePage() {
     setSelectedImage(null);
   };
 
-  // FIX: `handleInputChange` now updates the local `editableProfile` state.
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -130,9 +140,8 @@ export default function ProfilePage() {
     }
   };
 
-  // FIX: `handleSaveChanges` now validates and sends the local `editableProfile` state.
   const handleSaveChanges = async () => {
-    if (!editableProfile || !user) return;
+    if (!editableProfile || !user || !hasChanges) return;
 
     setDisplayNameError("");
     setUsernameError("");
@@ -172,6 +181,8 @@ export default function ProfilePage() {
         username: editableProfile.username.trim(),
         bio: editableProfile.bio.trim(),
       });
+      // After successfully saving, reset hasChanges state
+      setHasChanges(false);
     } catch (error) {
       toast.error("Failed to update profile.");
       console.error("Error updating profile:", error);
@@ -220,7 +231,6 @@ export default function ProfilePage() {
     setConfirmationUsername("");
   };
 
-  // FIX: Wait for `editableProfile` to be populated before rendering the main component.
   if (!isClient || loading || !editableProfile) {
     return <ProfilePageSkeleton />;
   }
@@ -395,7 +405,6 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="display_name">Display Name</Label>
-                    {/* FIX: Bind value to local state `editableProfile` */}
                     <Input
                       id="display_name"
                       value={editableProfile.display_name}
@@ -410,7 +419,6 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
-                    {/* FIX: Bind value to local state `editableProfile` */}
                     <Input
                       id="username"
                       value={editableProfile.username}
@@ -435,7 +443,6 @@ export default function ProfilePage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
-                  {/* FIX: Bind value to local state `editableProfile` */}
                   <Textarea
                     id="bio"
                     placeholder="Tell your study buddies about yourself..."
@@ -446,9 +453,10 @@ export default function ProfilePage() {
                 </div>
               </CardContent>
               <CardFooter className="flex justify-end border-t px-6 py-4">
+                {/* FIX: The disabled logic now includes a check for `!hasChanges`. */}
                 <Button
                   onClick={handleSaveChanges}
-                  disabled={saving || uploading}
+                  disabled={saving || uploading || !hasChanges}
                   className="cursor-pointer"
                 >
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
