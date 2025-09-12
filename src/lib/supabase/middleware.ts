@@ -41,7 +41,12 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
 
   // Define an array of public locations.
-  const publicLocations: string[] = ["/", "/login", "/api/webhook"];
+  const publicLocations: string[] = [
+    "/",
+    "/login",
+    "/api/webhook",
+    "/auth/callback",
+  ];
 
   if (!user && !publicLocations.includes(request.nextUrl.pathname)) {
     // no user, potentially respond by redirecting the user to the login page
