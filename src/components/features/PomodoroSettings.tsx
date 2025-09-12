@@ -158,17 +158,31 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
   const [localSettings, setLocalSettings] =
     useState<PomodoroSettingsType>(settings);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     setLocalSettings(settings);
-  }, [settings]);
+    setHasChanges(false); // Reset changes when the dialog is opened or settings prop changes
+  }, [settings, isOpen]);
+
+  // Effect to check for changes between localSettings and the original settings
+  useEffect(() => {
+    const detectChanges = () => {
+      const changed =
+        JSON.stringify(localSettings) !== JSON.stringify(settings);
+      setHasChanges(changed);
+    };
+    detectChanges();
+  }, [localSettings, settings]);
 
   const handleSave = async () => {
+    if (!hasChanges) return; // Do nothing if there are no changes
     setIsLoading(true);
     try {
       await updateSettings(localSettings);
       onClose();
       toast.success("Settings saved successfully.");
+      setHasChanges(false); // Reset changes after saving
     } catch (err) {
       console.error("Error saving settings:", err);
       toast.error("Failed to save settings. Please try again.");
@@ -179,6 +193,7 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
 
   const handleCancel = () => {
     setLocalSettings(settings);
+    setHasChanges(false); // Reset changes on cancel
     onClose();
   };
 
@@ -322,7 +337,12 @@ export const PomodoroSettings: React.FC<PomodoroSettingsProps> = ({
           <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSave} disabled={isLoading}>
+          <Button
+            type="submit"
+            onClick={handleSave}
+            className="cursor-pointer"
+            disabled={isLoading || !hasChanges}
+          >
             {isLoading ? (
               <>
                 <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
