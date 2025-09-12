@@ -77,6 +77,24 @@ export default function PomodoroPage() {
   // Wake lock reference
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
+  // Update tab title with timer
+  useEffect(() => {
+    const originalTitle = "Pomigo - Pomodoro Study App";
+    if (timerRunning) {
+      document.title = `${formatTime(timeLeft)} - ${
+        currentSessionType === "study" ? `Studying ${currentSubject}` : "Break"
+      }`;
+    } else if (isPausedRef.current) {
+      document.title = `${formatTime(timeLeft)} - Paused`;
+    } else {
+      document.title = originalTitle;
+    }
+
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [timeLeft, timerRunning, currentSessionType]);
+
   const getSessionDuration = (sessionType: SessionType): number => {
     if (!pomodoroSettings) return 25;
     switch (sessionType) {
