@@ -13,7 +13,7 @@ import {
   format,
   isWithinInterval,
 } from "date-fns";
-import { useUser } from "./useUser"; // Assuming useUser is in the same directory
+import { useUser } from "./useUser";
 import { User } from "@supabase/supabase-js";
 
 // Define the shape of a friend's profile and their session data

@@ -17,25 +17,9 @@ import {
   useLeaderboardData,
   LeaderboardFriend,
 } from "@/lib/hooks/useLeaderboardData";
-import { LeaderboardSkeleton } from "./components/LeaderboardSkeleton"; // Import the new skeleton component
-
-// --- NEW AVATAR COMPONENT ---
-const Avatar = ({ avatarUrl }: { avatarUrl: string | null | undefined }) => {
-  const isUrl = avatarUrl && avatarUrl.startsWith("http");
-
-  if (isUrl) {
-    return (
-      <img
-        src={avatarUrl}
-        alt="User avatar"
-        className="w-10 h-10 rounded-full object-cover"
-        referrerPolicy="no-referrer" // Important for Google avatars
-      />
-    );
-  }
-
-  return <span className="text-2xl">{avatarUrl || "🧑‍💻"}</span>;
-};
+import { LeaderboardSkeleton } from "./components/LeaderboardSkeleton";
+import Image from "next/image";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly";
 type MetricType = "mostStudied" | "leastStudied" | "mostBreaks" | "leastBreaks";
@@ -272,10 +256,21 @@ export default function MinimalLeaderboard() {
                       )}
                     </div>
                     <div className="flex-shrink-0 relative">
-                      <Avatar avatarUrl={user.avatar_url} />
-                      {user.isOnline && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border border-background rounded-full"></div>
-                      )}
+                      <Avatar className="h-10 w-10 cursor-pointer select-none">
+                        {user.avatar_url ? (
+                          <Image
+                            src={user.avatar_url}
+                            alt={user.display_name || "User avatar"}
+                            width={64}
+                            height={64}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {user.display_name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
