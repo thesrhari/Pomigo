@@ -31,6 +31,8 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useFriends } from "@/lib/hooks/useFriends";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import Image from "next/image";
 
 // Using a simple time formatting function instead of date-fns
 const formatTimeAgo = (dateString: string): string => {
@@ -92,18 +94,21 @@ function ActivityFeedItem({ activity }: { activity: ActivityItem }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
       <div className="flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm">
-          {activity.user.avatar_url &&
-          activity.user.avatar_url.startsWith("http") ? (
-            <img
+        <Avatar className="h-10 w-10 cursor-pointer select-none">
+          {activity.user.avatar_url ? (
+            <Image
               src={activity.user.avatar_url}
               alt={activity.user.display_name}
-              className="w-8 h-8 rounded-full object-cover"
+              width={64}
+              height={64}
+              className="rounded-full"
             />
           ) : (
-            <span>{activity.user.avatar_url || "👤"}</span>
+            <AvatarFallback>
+              {activity.user.display_name.charAt(0).toUpperCase()}
+            </AvatarFallback>
           )}
-        </div>
+        </Avatar>
       </div>
 
       <div className="flex-1 min-w-0">

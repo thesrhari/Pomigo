@@ -10,10 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import Image from "next/image";
 
 export const TopNavBar: React.FC = () => {
   const { profile, loading } = useProfile();
@@ -48,13 +49,19 @@ export const TopNavBar: React.FC = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer select-none">
-                  <AvatarImage
-                    src={profile?.avatar_url}
-                    alt={profile?.username}
-                  />
-                  <AvatarFallback>
-                    {profile?.display_name?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
+                  {profile?.avatar_url ? (
+                    <Image
+                      src={profile.avatar_url}
+                      alt={profile?.username || "User avatar"}
+                      width={64}
+                      height={64}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <AvatarFallback>
+                      {profile?.display_name?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">

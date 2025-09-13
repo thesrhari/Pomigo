@@ -20,6 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import Image from "next/image";
 
 // --- (User type and FriendCardProps interface remain the same) ---
 type User = {
@@ -202,15 +204,21 @@ export default function FriendCard({
           <div className="flex items-center space-x-4">
             <div className="relative">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-lg font-medium">
-                {user.avatar_url ? (
-                  <img
-                    src={user.avatar_url}
-                    alt={user.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  user.name.charAt(0).toUpperCase()
-                )}
+                <Avatar className="h-12 w-12 cursor-pointer select-none">
+                  {user.avatar_url ? (
+                    <Image
+                      src={user.avatar_url}
+                      alt={user.name || "User avatar"}
+                      width={64}
+                      height={64}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <AvatarFallback>
+                      {user.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
               </div>
             </div>
             <div>

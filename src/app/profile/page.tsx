@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Trash2, Loader2, AlertTriangle, Crown, Settings } from "lucide-react";
 import AvatarCropper from "@/components/AvatarCropper";
 import { ProfilePageSkeleton } from "./components/ProfilePageSkeleton";
@@ -32,6 +32,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "react-toastify";
 import { Switch } from "@/components/ui/switch";
 import { PricingModal } from "@/components/PricingModal";
+import Image from "next/image";
 
 const formatDuration = (minutes: number) => {
   if (typeof minutes !== "number" || isNaN(minutes)) {
@@ -250,16 +251,6 @@ export default function ProfilePage() {
     confirmationUsername === profile?.username &&
     confirmationUsername.length > 0;
 
-  const getAvatarFallback = () => {
-    if (profile?.display_name) {
-      return profile.display_name.slice(0, 2).toUpperCase();
-    }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return "??";
-  };
-
   const journeyStats = stats
     ? [
         {
@@ -372,11 +363,20 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-start space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-6">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={profile.avatar_url} alt="User Avatar" />
-                    <AvatarFallback className="text-3xl">
-                      {getAvatarFallback()}
-                    </AvatarFallback>
+                  <Avatar className="h-24 w-24 cursor-pointer select-none">
+                    {profile?.avatar_url ? (
+                      <Image
+                        src={profile.avatar_url}
+                        alt={profile?.username || "User avatar"}
+                        width={256}
+                        height={256}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <AvatarFallback>
+                        {profile?.display_name?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <input
                     type="file"
