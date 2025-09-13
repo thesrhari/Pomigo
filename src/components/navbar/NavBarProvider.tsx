@@ -9,41 +9,49 @@ interface NavBarProviderProps {
   children: React.ReactNode;
 }
 
-const publicRoutes = ["/", "/login"];
+const privateRoutes = [
+  "/dashboard",
+  "/study",
+  "/analytics",
+  "/friends",
+  "/leaderboards",
+  "/profile",
+  "/customize",
+];
 
 export default function NavBarProvider({ children }: NavBarProviderProps) {
   const pathname = usePathname();
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isPrivateRoute = privateRoutes.includes(pathname);
 
-  if (isPublicRoute) {
-    return <div>{children}</div>;
-  }
+  if (isPrivateRoute) {
+    return (
+      <div className="min-h-screen transition-colors duration-300">
+        <div className="min-h-screen bg-background">
+          <TopNavBar />
 
-  return (
-    <div className="min-h-screen transition-colors duration-300">
-      <div className="min-h-screen bg-background">
-        <TopNavBar />
-
-        <div className="flex">
-          <Sidebar />
-          <div className="flex-1 lg:ml-64 overflow-auto">
-            <div className="p-6 lg:p-8">{children}</div>
+          <div className="flex">
+            <Sidebar />
+            <div className="flex-1 lg:ml-64 overflow-auto">
+              <div className="p-6 lg:p-8">{children}</div>
+            </div>
+            <ToastContainer
+              position="bottom-right"
+              autoClose={5000}
+              hideProgressBar
+              newestOnTop={false}
+              closeOnClick={false}
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+              transition={Bounce}
+            />
           </div>
-          <ToastContainer
-            position="bottom-right"
-            autoClose={5000}
-            hideProgressBar
-            newestOnTop={false}
-            closeOnClick={false}
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="colored"
-            transition={Bounce}
-          />
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <div>{children}</div>;
 }
