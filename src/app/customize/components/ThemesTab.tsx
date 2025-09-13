@@ -14,6 +14,7 @@ import { usePreview } from "@/components/PreviewProvider";
 import { useProStatus } from "@/lib/hooks/useProStatus";
 import { useUserPreferences } from "@/components/UserPreferencesProvider";
 import { useEffect, useState } from "react";
+import { ThemesTabSkeleton } from "./ThemesTabSkeleton";
 
 interface ThemeOption {
   id: Theme;
@@ -144,7 +145,12 @@ const themeOptions: ThemeOption[] = [
 ];
 
 export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
-  const { theme: currentTheme, applyTheme, isUpdating } = useUserPreferences();
+  const {
+    theme: currentTheme,
+    applyTheme,
+    isUpdating,
+    isLoading,
+  } = useUserPreferences();
   const { startPreview } = usePreview();
   const { isPro } = useProStatus();
   const [applyingThemeId, setApplyingThemeId] = useState<Theme | null>(null);
@@ -174,123 +180,127 @@ export function ThemesTab({ onUpgradeClick }: ThemesTabProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {themeOptions.map((option) => {
-          const isCurrentTheme = currentTheme === option.id;
-          const canApply = !option.isPro || isPro;
-          const isApplying = isUpdating && applyingThemeId === option.id;
+        {isLoading
+          ? Array.from({ length: themeOptions.length }).map((_, index) => (
+              <ThemesTabSkeleton key={index} />
+            ))
+          : themeOptions.map((option) => {
+              const isCurrentTheme = currentTheme === option.id;
+              const canApply = !option.isPro || isPro;
+              const isApplying = isUpdating && applyingThemeId === option.id;
 
-          return (
-            <Card
-              key={option.id}
-              className={`relative transition-all duration-200 ${
-                isCurrentTheme
-                  ? "ring-2 ring-primary shadow-lg"
-                  : "hover:shadow-md"
-              }`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">{option.name}</CardTitle>
-                    {option.isPro && (
-                      <Crown className="w-4 h-4 text-amber-500" />
-                    )}
-                    {isCurrentTheme && (
-                      <Check className="w-4 h-4 text-primary" />
-                    )}
-                  </div>
-                  {option.isPro && !isPro && (
-                    <Badge variant="secondary">Pro</Badge>
-                  )}
-                </div>
-                <CardDescription>{option.description}</CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Color Preview */}
-                <div className="flex gap-2">
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                    style={{
-                      backgroundColor: option.previewColors.background,
-                    }}
-                    title="Background"
-                  />
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                    style={{
-                      backgroundColor: option.previewColors.primary,
-                    }}
-                    title="Primary"
-                  />
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                    style={{
-                      backgroundColor: option.previewColors.secondary,
-                    }}
-                    title="Secondary"
-                  />
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
-                    style={{
-                      backgroundColor: option.previewColors.accent,
-                    }}
-                    title="Accent"
-                  />
-                </div>
-
-                {/* Actions */}
-                <div className="grid grid-cols-2 gap-2">
-                  {canApply ? (
-                    <>
-                      <Button
-                        onClick={() => handleApplyTheme(option.id)}
-                        disabled={isCurrentTheme || isApplying}
-                        variant={isCurrentTheme ? "secondary" : "default"}
-                        className="w-full"
-                      >
-                        {isApplying ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
-                            Applying
-                          </>
-                        ) : isCurrentTheme ? (
-                          "Applied"
-                        ) : (
-                          "Apply"
+              return (
+                <Card
+                  key={option.id}
+                  className={`relative transition-all duration-200 ${
+                    isCurrentTheme
+                      ? "ring-2 ring-primary shadow-lg"
+                      : "hover:shadow-md"
+                  }`}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{option.name}</CardTitle>
+                        {option.isPro && (
+                          <Crown className="w-4 h-4 text-amber-500" />
                         )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => handlePreviewTheme(option.id)}
-                        disabled={isApplying}
-                        className="w-full"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button disabled variant="outline" className="w-full">
-                        <Lock className="w-4 h-4 mr-2" />
-                        Locked
-                      </Button>
-                      <Button
-                        onClick={() => handlePreviewTheme(option.id)}
-                        variant="default"
-                        className="w-full"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                        {isCurrentTheme && (
+                          <Check className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
+                      {option.isPro && !isPro && (
+                        <Badge variant="secondary">Pro</Badge>
+                      )}
+                    </div>
+                    <CardDescription>{option.description}</CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    {/* Color Preview */}
+                    <div className="flex gap-2">
+                      <div
+                        className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                        style={{
+                          backgroundColor: option.previewColors.background,
+                        }}
+                        title="Background"
+                      />
+                      <div
+                        className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                        style={{
+                          backgroundColor: option.previewColors.primary,
+                        }}
+                        title="Primary"
+                      />
+                      <div
+                        className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                        style={{
+                          backgroundColor: option.previewColors.secondary,
+                        }}
+                        title="Secondary"
+                      />
+                      <div
+                        className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+                        style={{
+                          backgroundColor: option.previewColors.accent,
+                        }}
+                        title="Accent"
+                      />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {canApply ? (
+                        <>
+                          <Button
+                            onClick={() => handleApplyTheme(option.id)}
+                            disabled={isCurrentTheme || isApplying}
+                            variant={isCurrentTheme ? "secondary" : "default"}
+                            className="w-full"
+                          >
+                            {isApplying ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                                Applying
+                              </>
+                            ) : isCurrentTheme ? (
+                              "Applied"
+                            ) : (
+                              "Apply"
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => handlePreviewTheme(option.id)}
+                            disabled={isApplying}
+                            className="w-full"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button disabled variant="outline" className="w-full">
+                            <Lock className="w-4 h-4 mr-2" />
+                            Locked
+                          </Button>
+                          <Button
+                            onClick={() => handlePreviewTheme(option.id)}
+                            variant="default"
+                            className="w-full"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
       </div>
 
       {!isPro && (

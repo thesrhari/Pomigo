@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PricingModal } from "@/components/PricingModal";
@@ -31,7 +31,6 @@ export default function ThemeSelectorPage() {
   const {
     timerStyle: currentTimerStyle,
     applyTimerStyle: handleApplyTimerStyle,
-    isLoading: isStyleLoading,
     isUpdating,
   } = useUserPreferences();
   const [isTimerPreviewOpen, setIsTimerPreviewOpen] = useState(false);
@@ -118,19 +117,13 @@ export default function ThemeSelectorPage() {
             </TabsContent>
 
             <TabsContent value="timer-styles" className="mt-8">
-              {isStyleLoading ? (
-                <div className="flex justify-center items-center h-48">
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <TimerStylesTab
-                  currentStyle={currentTimerStyle}
-                  onApplyStyle={handleApplyTimerStyle}
-                  onPreviewStyle={handlePreviewTimerStyle}
-                  onUpgradeClick={() => setIsPricingModalOpen(true)}
-                  isUpdating={isUpdating}
-                />
-              )}
+              <TimerStylesTab
+                currentStyle={currentTimerStyle}
+                onApplyStyle={handleApplyTimerStyle}
+                onPreviewStyle={handlePreviewTimerStyle}
+                onUpgradeClick={() => setIsPricingModalOpen(true)}
+                isUpdating={isUpdating}
+              />
             </TabsContent>
           </Tabs>
         </div>

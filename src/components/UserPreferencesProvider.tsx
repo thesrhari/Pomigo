@@ -125,7 +125,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     applyTheme,
     timerStyle,
     applyTimerStyle,
-    isLoading: isProStatusLoading,
+    isLoading: isProStatusLoading || isUserLoading,
     isUpdating: false,
   };
 
