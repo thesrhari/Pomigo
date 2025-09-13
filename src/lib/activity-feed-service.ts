@@ -295,24 +295,11 @@ export class ActivityFeedService {
   // Fetch activity feed for user's friends with conditional logic
   async getFriendActivityFeed(
     user: User | null | undefined,
+    friendIds: string[],
     options: GetFeedOptions
   ): Promise<ActivityFeedItem[]> {
-    if (!user) return [];
+    if (!user || !friendIds.length) return [];
 
-    // Get friend IDs (same as before)
-    const { data: friendRelationships } = await supabase
-      .from("friend_relationships")
-      .select("requester_id, addressee_id")
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-      .eq("status", "accepted");
-
-    if (!friendRelationships?.length) return [];
-
-    const friendIds = friendRelationships.map((fr) =>
-      fr.requester_id === user.id ? fr.addressee_id : fr.requester_id
-    );
-
-    // If the user is on a FREE plan, just fetch the last 20.
     if ("limit" in options) {
       const { data: activities, error } = await this.fetchActivities(
         friendIds,
@@ -325,9 +312,7 @@ export class ActivityFeedService {
       return this.filterAndFormatActivities(activities);
     }
 
-    // --- START: NEW HYBRID LOGIC FOR PRO USERS ---
     if ("timeframeInHours" in options) {
-      // First, try to fetch activities from the last 48 hours.
       const fromDate = subHours(
         new Date(),
         options.timeframeInHours
@@ -341,13 +326,10 @@ export class ActivityFeedService {
         return [];
       }
 
-      // If there are enough recent activities (e.g., 20 or more), return them.
       if (recentActivities && recentActivities.length >= 20) {
         return this.filterAndFormatActivities(recentActivities);
       }
 
-      // Otherwise, fetch the last 20 activities to ensure the feed isn't empty.
-      // This acts as a fallback.
       const { data: latestActivities, error: latestError } =
         await this.fetchActivities(friendIds, { limit: 20 });
 
@@ -355,16 +337,10 @@ export class ActivityFeedService {
         console.error("Error fetching latest activity feed:", latestError);
         return [];
       }
-
-      // We can decide to merge them, but for simplicity, returning the latest 20 is a solid fallback.
-      // If you merge, you'd need to handle duplicates.
-      // For this implementation, we will prioritize showing *something* over showing recent but sparse activity.
-      // If recentActivities has 5 items, and latestActivities has 20, the 20 are more valuable.
       return this.filterAndFormatActivities(latestActivities);
     }
-    // --- END: NEW HYBRID LOGIC FOR PRO USERS ---
 
-    return []; // Should not be reached
+    return [];
   }
 
   // Helper function to build and execute the query

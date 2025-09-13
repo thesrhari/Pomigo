@@ -1,5 +1,4 @@
 // lib/friends-service.ts
-
 import type {
   FriendRequest,
   Friend,
@@ -107,12 +106,22 @@ export class FriendsService {
     }
   }
 
-  // Get incoming friend requests
-  async getIncomingRequests(
-    user: User | null | undefined
-  ): Promise<FriendRequest[]> {
+  // Get all relationships (accepted, pending, blocked) in a single call
+  async getAllRelationships(user: User | null | undefined): Promise<{
+    friends: Friend[];
+    incomingRequests: FriendRequest[];
+    outgoingRequests: FriendRequest[];
+    blockedUsers: BlockedUser[];
+  }> {
+    const emptyState = {
+      friends: [],
+      incomingRequests: [],
+      outgoingRequests: [],
+      blockedUsers: [],
+    };
+
     try {
-      if (!user) return [];
+      if (!user) return emptyState;
 
       const { data, error } = await this.supabase
         .from("friend_relationships")
@@ -120,131 +129,8 @@ export class FriendsService {
           `
           id,
           created_at,
-          requester:requester_id (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            bio
-          )
-        `
-        )
-        .eq("addressee_id", user.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching incoming requests:", error);
-        return [];
-      }
-
-      const requests: FriendRequest[] = [];
-      for (const item of data || []) {
-        const requester = item.requester as any;
-        if (requester) {
-          // Get mutual friends count
-          const { data: mutualCount } = await this.supabase.rpc(
-            "get_mutual_friends_count",
-            {
-              user1_id: user.id,
-              user2_id: requester.id,
-            }
-          );
-
-          requests.push({
-            id: requester.id,
-            name: requester.display_name || requester.username,
-            username: requester.username,
-            avatar_url: requester.avatar_url,
-            bio: requester.bio,
-            mutual_friends: mutualCount || 0,
-            timestamp: this.formatTimestamp(item.created_at),
-            relationship_id: item.id,
-          });
-        }
-      }
-
-      return requests;
-    } catch (error) {
-      console.error("Error fetching incoming requests:", error);
-      return [];
-    }
-  }
-
-  // Get outgoing friend requests
-  async getOutgoingRequests(
-    user: User | null | undefined
-  ): Promise<FriendRequest[]> {
-    try {
-      if (!user) return [];
-
-      const { data, error } = await this.supabase
-        .from("friend_relationships")
-        .select(
-          `
-          id,
-          created_at,
-          addressee:addressee_id (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            bio
-          )
-        `
-        )
-        .eq("requester_id", user.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching outgoing requests:", error);
-        return [];
-      }
-
-      const requests: FriendRequest[] = [];
-      for (const item of data || []) {
-        const addressee = item.addressee as any;
-        if (addressee) {
-          // Get mutual friends count
-          const { data: mutualCount } = await this.supabase.rpc(
-            "get_mutual_friends_count",
-            {
-              user1_id: user.id,
-              user2_id: addressee.id,
-            }
-          );
-
-          requests.push({
-            id: addressee.id,
-            name: addressee.display_name || addressee.username,
-            username: addressee.username,
-            avatar_url: addressee.avatar_url,
-            bio: addressee.bio,
-            mutual_friends: mutualCount || 0,
-            timestamp: this.formatTimestamp(item.created_at),
-            relationship_id: item.id,
-          });
-        }
-      }
-
-      return requests;
-    } catch (error) {
-      console.error("Error fetching outgoing requests:", error);
-      return [];
-    }
-  }
-
-  // Get friends list
-  async getFriends(user: User | null | undefined): Promise<Friend[]> {
-    try {
-      if (!user) return [];
-
-      const { data, error } = await this.supabase
-        .from("friend_relationships")
-        .select(
-          `
-          id,
+          updated_at,
+          status,
           requester_id,
           addressee_id,
           requester:requester_id (
@@ -263,31 +149,82 @@ export class FriendsService {
           )
         `
         )
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .eq("status", "accepted")
-        .order("updated_at", { ascending: false });
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
 
       if (error) {
-        console.error("Error fetching friends:", error);
-        return [];
+        console.error("Error fetching relationships:", error);
+        return emptyState;
       }
 
-      return (data || []).map((item: any) => {
-        const friend =
-          item.requester_id === user.id ? item.addressee : item.requester;
-        return {
-          id: friend.id,
-          name: friend.display_name || friend.username,
-          username: friend.username,
-          avatar_url: friend.avatar_url,
-          bio: friend.bio,
-          is_online: false, // You can implement online status separately
-          relationship_id: item.id,
-        };
-      });
+      const friends: Friend[] = [];
+      const incomingRequests: FriendRequest[] = [];
+      const outgoingRequests: FriendRequest[] = [];
+      const blockedUsers: BlockedUser[] = [];
+
+      for (const item of data || []) {
+        const { id, status, requester_id, created_at, requester, addressee } =
+          item as any;
+        const otherUser = requester_id === user.id ? addressee : requester;
+
+        if (!otherUser) continue;
+
+        const mutualFriendsCount =
+          (
+            await this.supabase.rpc("get_mutual_friends_count", {
+              user1_id: user.id,
+              user2_id: otherUser.id,
+            })
+          ).data || 0;
+
+        switch (status) {
+          case "accepted":
+            friends.push({
+              id: otherUser.id,
+              name: otherUser.display_name || otherUser.username,
+              username: otherUser.username,
+              avatar_url: otherUser.avatar_url,
+              bio: otherUser.bio,
+              is_online: false, // Implement online status separately
+              relationship_id: id,
+            });
+            break;
+
+          case "pending":
+            const request = {
+              id: otherUser.id,
+              name: otherUser.display_name || otherUser.username,
+              username: otherUser.username,
+              avatar_url: otherUser.avatar_url,
+              bio: otherUser.bio,
+              mutual_friends: mutualFriendsCount,
+              timestamp: this.formatTimestamp(created_at),
+              relationship_id: id,
+            };
+            if (requester_id === user.id) {
+              outgoingRequests.push(request);
+            } else {
+              incomingRequests.push(request);
+            }
+            break;
+
+          case "blocked":
+            if (requester_id === user.id) {
+              blockedUsers.push({
+                id: otherUser.id,
+                name: otherUser.display_name || otherUser.username,
+                username: otherUser.username,
+                avatar_url: otherUser.avatar_url,
+                relationship_id: id,
+              });
+            }
+            break;
+        }
+      }
+
+      return { friends, incomingRequests, outgoingRequests, blockedUsers };
     } catch (error) {
-      console.error("Error fetching friends:", error);
-      return [];
+      console.error("Error fetching relationships:", error);
+      return emptyState;
     }
   }
 
@@ -479,46 +416,7 @@ export class FriendsService {
     }
   }
 
-  // New method to get blocked users
-  async getBlockedUsers(user: User | null | undefined): Promise<BlockedUser[]> {
-    try {
-      if (!user) return [];
-
-      const { data, error } = await this.supabase
-        .from("friend_relationships")
-        .select(
-          `
-          id,
-          addressee:addressee_id (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `
-        )
-        .eq("requester_id", user.id) // The current user is the one who initiated the block
-        .eq("status", "blocked");
-
-      if (error) {
-        console.error("Error fetching blocked users:", error);
-        return [];
-      }
-
-      return (data || []).map((item: any) => ({
-        id: item.addressee.id,
-        name: item.addressee.display_name || item.addressee.username,
-        username: item.addressee.username,
-        avatar_url: item.addressee.avatar_url,
-        relationship_id: item.id,
-      }));
-    } catch (error) {
-      console.error("Error fetching blocked users:", error);
-      return [];
-    }
-  }
-
-  // New method to unblock a user
+  // Unblock a user
   async unblockUser(
     relationshipId: string
   ): Promise<{ success: boolean; error?: FriendSystemError }> {
