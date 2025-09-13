@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,14 @@ export default function DashboardPage() {
   const { userName, weeklyData, statsData, statsLoading, statsError } =
     useDashboard();
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
   if (statsLoading) {
     return <DashboardSkeleton />;
   }
@@ -64,7 +72,7 @@ export default function DashboardPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div>
               <h1 className="text-3xl font-bold">
-                Good morning, {userName}! 👋
+                {greeting}, {userName}! 👋
               </h1>
               <p className="text-lg text-muted-foreground mt-2">
                 Ready for another productive study session?
@@ -95,7 +103,13 @@ export default function DashboardPage() {
         <StatCard
           title="Time Today"
           value={statsData ? formatDuration(statsData.totalStudyTime) : "0.0"}
-          subtitle="Keep it up!"
+          subtitle={
+            statsData
+              ? formatDuration(statsData.totalStudyTime) !== "0min"
+                ? "Keep it up!"
+                : "Time to study!"
+              : "Keep it up!"
+          }
           icon={Timer}
           variant="primary"
         />

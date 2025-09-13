@@ -12,12 +12,7 @@ import { useUser } from "@/lib/hooks/useUser";
 import { useMemo } from "react";
 
 export function useDashboard() {
-  const {
-    user,
-    userId,
-    isLoading: isUserLoading,
-    error: userError,
-  } = useUser();
+  const { user, isLoading: isUserLoading, error: userError } = useUser();
 
   const {
     data: statsData,
