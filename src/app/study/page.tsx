@@ -16,11 +16,10 @@ import { Play, Pause, Settings, RotateCcw, SkipForward } from "lucide-react";
 import { usePomodoroTracker } from "@/lib/hooks/usePomodoroTracker";
 import { usePomodoroData } from "@/lib/hooks/usePomodoroData";
 import { useAudioNotifications } from "@/lib/hooks/useAudioNotifications";
-import { createClient } from "@/lib/supabase/client";
 import { PomodoroSkeleton } from "./components/PomodoroSkeleton";
-import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
+import { useUser } from "@/lib/hooks/useUser";
 
-const supabase = createClient();
 type SessionType = "study" | "short_break" | "long_break";
 interface SessionStatus {
   type: SessionType;
@@ -55,6 +54,7 @@ export default function PomodoroPage() {
     deleteSubject,
     updatePomodoroSettings,
   } = usePomodoroData();
+  const { user } = useUser();
   const { timerStyle } = useUserPreferences();
   const { playSound } = useAudioNotifications(
     pomodoroSettings?.selectedSoundId || null
@@ -138,12 +138,7 @@ export default function PomodoroPage() {
         isRunning?: boolean;
       }>
     ) => {
-      const {
-        type,
-        timeLeft: workerTimeLeft,
-        timestamp,
-        isRunning,
-      } = event.data;
+      const { type, timeLeft: workerTimeLeft, isRunning } = event.data;
 
       switch (type) {
         case "tick":
@@ -153,7 +148,6 @@ export default function PomodoroPage() {
           break;
 
         case "sessionEnd":
-          console.log("Session ended, playing sound...");
           if (pomodoroSettings) {
             playSound(
               pomodoroSettings.selectedSoundId,
@@ -186,13 +180,6 @@ export default function PomodoroPage() {
           }
           const nextDuration = getSessionDuration(nextSessionType);
           setTimeLeft(nextDuration * 60);
-          break;
-
-        case "heartbeat":
-          // Worker heartbeat - could be used to detect if worker is throttled
-          if (process.env.NODE_ENV === "development") {
-            console.log("Worker heartbeat:", { timestamp, isRunning });
-          }
           break;
 
         case "sync-response":
@@ -248,7 +235,6 @@ export default function PomodoroPage() {
         const nav = navigator as NavigatorWithWakeLock;
         if (nav.wakeLock && timerRunning && currentSessionType === "study") {
           wakeLockRef.current = await nav.wakeLock.request("screen");
-          console.log("Screen wake lock acquired");
         }
       } catch (err) {
         console.warn("Could not acquire wake lock:", err);
@@ -259,7 +245,6 @@ export default function PomodoroPage() {
       if (wakeLockRef.current && !wakeLockRef.current.released) {
         try {
           await wakeLockRef.current.release();
-          console.log("Screen wake lock manually released");
         } catch (err) {
           console.warn("Could not release wake lock:", err);
         }
@@ -278,29 +263,18 @@ export default function PomodoroPage() {
     };
   }, [timerRunning, currentSessionType]);
 
-  // Focus/blur event handling for additional reliability
+  // Focus event handling for additional reliability
   useEffect(() => {
     const handleFocus = () => {
-      // When window regains focus, sync with worker
       if (workerRef.current && (timerRunning || isPausedRef.current)) {
-        console.log("Window focused, syncing with worker...");
         workerRef.current.postMessage({ command: "sync" } as WorkerMessage);
       }
     };
 
-    const handleBlur = () => {
-      // When window loses focus, log for debugging
-      if (process.env.NODE_ENV === "development") {
-        console.log("Window lost focus, timer running:", timerRunning);
-      }
-    };
-
     window.addEventListener("focus", handleFocus);
-    window.addEventListener("blur", handleBlur);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("blur", handleBlur);
     };
   }, [timerRunning]);
 
@@ -464,9 +438,6 @@ export default function PomodoroPage() {
     newSettings: typeof pomodoroSettings
   ) => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       if (user && newSettings) {
         await updatePomodoroSettings(newSettings);
       }

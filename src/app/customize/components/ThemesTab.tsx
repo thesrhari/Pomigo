@@ -12,7 +12,7 @@ import { Crown, Check, Lock, Eye, Loader2 } from "lucide-react";
 import { Theme } from "@/components/ThemeProvider";
 import { usePreview } from "@/components/PreviewProvider";
 import { useProStatus } from "@/lib/hooks/useProStatus";
-import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
 import { useEffect, useState } from "react";
 
 interface ThemeOption {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "../supabase/client";
 import { useUser } from "./useUser";
+import { useState, useEffect } from "react";
 
 // Types
 interface Subject {
@@ -18,13 +19,122 @@ interface PomodoroSettings {
   longBreakInterval: number;
   iterations: number;
   soundEnabled: boolean;
-  selectedSoundId: number | null;
+  selectedSoundId: number;
 }
 
 // Initialize Supabase client
 const supabase = createClient();
 
-// Fetcher functions for TanStack Query
+// Default values for Pomodoro settings
+const defaultPomodoroSettings: PomodoroSettings = {
+  focusTime: 25,
+  shortBreak: 5,
+  longBreak: 15,
+  longBreakEnabled: false,
+  longBreakInterval: 4,
+  iterations: 4,
+  soundEnabled: true,
+  selectedSoundId: 1,
+};
+
+// --- Validation and Local Storage ---
+
+const validateAndSanitize = (settings: any): PomodoroSettings => {
+  const sanitizedSettings: PomodoroSettings = { ...defaultPomodoroSettings };
+
+  if (settings) {
+    // Validate focusTime
+    sanitizedSettings.focusTime =
+      typeof settings.focusTime === "number" &&
+      settings.focusTime >= 10 &&
+      settings.focusTime <= 180
+        ? settings.focusTime
+        : defaultPomodoroSettings.focusTime;
+
+    // Validate shortBreak
+    sanitizedSettings.shortBreak =
+      typeof settings.shortBreak === "number" &&
+      settings.shortBreak >= 2 &&
+      settings.shortBreak <= 90
+        ? settings.shortBreak
+        : defaultPomodoroSettings.shortBreak;
+
+    // Validate longBreak
+    sanitizedSettings.longBreak =
+      typeof settings.longBreak === "number" &&
+      settings.longBreak >= 10 &&
+      settings.longBreak <= 180
+        ? settings.longBreak
+        : defaultPomodoroSettings.longBreak;
+
+    // Validate longBreakInterval
+    sanitizedSettings.longBreakInterval =
+      typeof settings.longBreakInterval === "number" &&
+      settings.longBreakInterval >= 2 &&
+      settings.longBreakInterval <= 10
+        ? settings.longBreakInterval
+        : defaultPomodoroSettings.longBreakInterval;
+
+    // Validate iterations
+    sanitizedSettings.iterations =
+      typeof settings.iterations === "number" &&
+      settings.iterations >= 1 &&
+      settings.iterations <= 10
+        ? settings.iterations
+        : defaultPomodoroSettings.iterations;
+
+    // Validate selectedSoundId
+    sanitizedSettings.selectedSoundId =
+      typeof settings.selectedSoundId === "number" &&
+      settings.selectedSoundId >= 1 &&
+      settings.selectedSoundId <= 5
+        ? settings.selectedSoundId
+        : defaultPomodoroSettings.selectedSoundId;
+
+    // Assign boolean values
+    sanitizedSettings.longBreakEnabled =
+      typeof settings.longBreakEnabled === "boolean"
+        ? settings.longBreakEnabled
+        : defaultPomodoroSettings.longBreakEnabled;
+    sanitizedSettings.soundEnabled =
+      typeof settings.soundEnabled === "boolean"
+        ? settings.soundEnabled
+        : defaultPomodoroSettings.soundEnabled;
+  }
+
+  return sanitizedSettings;
+};
+
+const getPomodoroSettingsFromLocalStorage = (): PomodoroSettings => {
+  try {
+    const settings = localStorage.getItem("pomodoroSettings");
+    if (!settings) {
+      localStorage.setItem(
+        "pomodoroSettings",
+        JSON.stringify(defaultPomodoroSettings)
+      );
+      return defaultPomodoroSettings;
+    }
+    const parsedSettings = JSON.parse(settings);
+    const validatedSettings = validateAndSanitize(parsedSettings);
+    localStorage.setItem("pomodoroSettings", JSON.stringify(validatedSettings));
+    return validatedSettings;
+  } catch (error) {
+    console.error("Failed to parse pomodoro settings from localStorage", error);
+    localStorage.setItem(
+      "pomodoroSettings",
+      JSON.stringify(defaultPomodoroSettings)
+    );
+    return defaultPomodoroSettings;
+  }
+};
+
+const savePomodoroSettingsToLocalStorage = (settings: PomodoroSettings) => {
+  localStorage.setItem("pomodoroSettings", JSON.stringify(settings));
+};
+
+// --- Fetcher functions for TanStack Query ---
+
 const fetchSubjects = async (userId: string): Promise<Subject[]> => {
   // First get all subjects
   const { data: subjectsData, error: subjectsError } = await supabase
@@ -62,38 +172,18 @@ const fetchSubjects = async (userId: string): Promise<Subject[]> => {
   );
 };
 
-const fetchPomodoroSettings = async (
-  userId: string
-): Promise<PomodoroSettings> => {
-  const { data, error } = await supabase
-    .from("pomodoro_settings")
-    .select(
-      "focus_duration, short_break, long_break, long_break_enabled, long_break_interval, iterations, sound_enabled, selected_sound_id"
-    )
-    .eq("user_id", userId)
-    .single();
-
-  if (error) {
-    console.error("Error fetching pomodoro settings:", error);
-    throw error;
-  }
-
-  return {
-    focusTime: data.focus_duration,
-    shortBreak: data.short_break,
-    longBreak: data.long_break,
-    longBreakEnabled: data.long_break_enabled,
-    longBreakInterval: data.long_break_interval,
-    iterations: data.iterations,
-    soundEnabled: data.sound_enabled,
-    selectedSoundId: data.selected_sound_id,
-  };
-};
-
 export function usePomodoroData() {
   const queryClient = useQueryClient();
   const { user, isLoading: isUserLoading } = useUser();
   const userId = user?.id;
+
+  const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(
+    defaultPomodoroSettings
+  );
+
+  useEffect(() => {
+    setPomodoroSettings(getPomodoroSettingsFromLocalStorage());
+  }, []);
 
   const {
     data: subjects,
@@ -102,16 +192,6 @@ export function usePomodoroData() {
   } = useQuery<Subject[]>({
     queryKey: ["subjects", userId],
     queryFn: () => fetchSubjects(userId!),
-    enabled: !!userId,
-  });
-
-  const {
-    data: pomodoroSettings,
-    error: pomodoroError,
-    isLoading: pomodoroLoading,
-  } = useQuery<PomodoroSettings>({
-    queryKey: ["pomodoro_settings", userId],
-    queryFn: () => fetchPomodoroSettings(userId!),
     enabled: !!userId,
   });
 
@@ -236,32 +316,20 @@ export function usePomodoroData() {
 
   const updatePomodoroSettingsMutation = useMutation({
     mutationFn: async (newSettings: PomodoroSettings) => {
-      if (!userId) throw new Error("User not found");
-      const { error } = await supabase.from("pomodoro_settings").upsert({
-        user_id: userId,
-        focus_duration: newSettings.focusTime,
-        short_break: newSettings.shortBreak,
-        long_break: newSettings.longBreak,
-        long_break_enabled: newSettings.longBreakEnabled,
-        long_break_interval: newSettings.longBreakInterval,
-        iterations: newSettings.iterations,
-        sound_enabled: newSettings.soundEnabled,
-        selected_sound_id: newSettings.selectedSoundId,
-      });
-
-      if (error) throw error;
-      return newSettings;
+      const validatedSettings = validateAndSanitize(newSettings);
+      savePomodoroSettingsToLocalStorage(validatedSettings);
+      return validatedSettings;
     },
     onSuccess: (newSettings) => {
-      queryClient.setQueryData(["pomodoro_settings", userId], newSettings);
+      setPomodoroSettings(newSettings);
     },
   });
 
   return {
     subjects: subjects || [],
     pomodoroSettings,
-    loading: isUserLoading || subjectsLoading || pomodoroLoading,
-    error: subjectsError || pomodoroError,
+    loading: isUserLoading || subjectsLoading,
+    error: subjectsError,
     addSubject: addSubjectMutation.mutateAsync,
     updateSubjects: updateSubjectsMutation.mutateAsync,
     deleteSubject: deleteSubjectMutation.mutateAsync,

@@ -9,7 +9,7 @@ import { PricingModal } from "@/components/PricingModal";
 import { ThemesTab } from "./components/ThemesTab";
 import { TimerStylesTab, TimerStyle } from "./components/TimerStylesTab";
 import { FullscreenTimerOverlay } from "@/components/features/FullscreenTimerOverlay";
-import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
+import { useUserPreferences } from "@/components/UserPreferencesProvider";
 
 // Mock session data for preview
 const mockSessionSequence = [

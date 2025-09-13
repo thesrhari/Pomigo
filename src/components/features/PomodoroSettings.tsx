@@ -25,7 +25,7 @@ interface PomodoroSettingsType {
   longBreakInterval: number;
   iterations: number;
   soundEnabled: boolean;
-  selectedSoundId: number | null;
+  selectedSoundId: number;
 }
 
 interface PomodoroSettingsProps {

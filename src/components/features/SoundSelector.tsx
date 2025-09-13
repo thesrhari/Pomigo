@@ -18,7 +18,7 @@ interface SoundSelectorProps {
   soundEnabled: boolean;
   selectedSoundId: number | null;
   onSoundEnabledChange: (enabled: boolean) => void;
-  onSoundSelectionChange: (soundId: number | null) => void;
+  onSoundSelectionChange: (soundId: number) => void;
   disabled?: boolean;
 }
 
