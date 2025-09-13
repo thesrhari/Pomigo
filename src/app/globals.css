@@ -124,7 +124,7 @@
 .doom {
   --background: hsl(0 0% 80%);
   --foreground: hsl(0 0% 12.1569%);
-  --card: hsl(0 0% 80%);
+  --card: hsl(0 0% 76%);
   --card-foreground: hsl(0 0% 12.1569%);
   --popover: hsl(0 0% 69.0196%);
   --popover-foreground: hsl(0 0% 12.1569%);
@@ -173,11 +173,11 @@
   --shadow-2xl: 0px 2px 4px 0px hsl(0 0% 0% / 1);
   --tracking-normal: -0.025em;
   --spacing: 0.27rem;
-  --cont-graph-1: hsl(151, 60%, 90%);
-  --cont-graph-2: hsl(151, 60%, 80%);
-  --cont-graph-3: hsl(151, 60%, 70%);
-  --cont-graph-4: hsl(151, 60%, 60%);
-  --cont-graph-5: hsl(151, 60%, 50%);
+  --cont-graph-1: hsl(151, 67%, 82%);
+  --cont-graph-2: hsl(151, 67%, 67%);
+  --cont-graph-3: hsl(151, 67%, 55%);
+  --cont-graph-4: hsl(151, 67%, 42%);
+  --cont-graph-5: hsl(151, 67%, 28%);
 }
 
 .cozy {
@@ -232,11 +232,11 @@
   --shadow-2xl: 0px 24px 48px 0px hsl(35 50% 80% / 0.2);
   --tracking-normal: -0.025em;
   --spacing: 0.27rem;
-  --cont-graph-1: hsl(151, 60%, 90%);
-  --cont-graph-2: hsl(151, 60%, 80%);
-  --cont-graph-3: hsl(151, 60%, 70%);
-  --cont-graph-4: hsl(151, 60%, 60%);
-  --cont-graph-5: hsl(151, 60%, 50%);
+  --cont-graph-1: hsl(151, 67%, 82%);
+  --cont-graph-2: hsl(151, 67%, 67%);
+  --cont-graph-3: hsl(151, 67%, 55%);
+  --cont-graph-4: hsl(151, 67%, 42%);
+  --cont-graph-5: hsl(151, 67%, 28%);
 }
 
 .nature {
@@ -290,6 +290,11 @@
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: -0.025em;
   --spacing: 0.27rem;
+  --cont-graph-1: hsl(151, 67%, 82%);
+  --cont-graph-2: hsl(151, 67%, 67%);
+  --cont-graph-3: hsl(151, 67%, 55%);
+  --cont-graph-4: hsl(151, 67%, 42%);
+  --cont-graph-5: hsl(151, 67%, 28%);
 }
 
 .cyberpunk {
