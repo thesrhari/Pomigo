@@ -1,5 +1,5 @@
 // lib/hooks/useSubscriptionManagement.ts
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/lib/hooks/useUser";
@@ -88,7 +88,8 @@ const fetchInvoices = async (
     `/api/invoices?page=${page}&limit=${INVOICES_PER_PAGE}`
   );
   if (!response.ok) {
-    throw new Error("Failed to fetch invoices");
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to fetch invoices");
   }
   return response.json();
 };
@@ -102,8 +103,8 @@ const cancelApiCall = async (subscriptionId: string) => {
     body: JSON.stringify({ subscriptionId }),
   });
   if (!response.ok) {
-    // TanStack Query's `useMutation` will catch this error.
-    throw new Error("Server failed to cancel the subscription.");
+    const errorData = await response.json();
+    throw new Error(errorData.message || "Failed to cancel the subscription.");
   }
 };
 
@@ -114,7 +115,10 @@ const reactivateApiCall = async (subscriptionId: string) => {
     body: JSON.stringify({ subscriptionId }),
   });
   if (!response.ok) {
-    throw new Error("Server failed to reactivate the subscription.");
+    const errorData = await response.json();
+    throw new Error(
+      errorData.message || "Failed to reactivate the subscription."
+    );
   }
 };
 
@@ -133,12 +137,23 @@ export const useSubscriptionManagement = () => {
     enabled: !!user, // The query will not run until the user is loaded.
   });
 
-  const { data: invoiceData, isLoading: isInvoicesLoading } = useQuery({
+  const {
+    data: invoiceData,
+    isLoading: isInvoicesLoading,
+    isError: isInvoiceError,
+    error: invoiceError,
+  } = useQuery({
     queryKey: ["invoices", user?.id, currentPage],
     queryFn: () => fetchInvoices(currentPage),
     enabled: !!user,
     placeholderData: (previousData) => previousData, // Keeps old data visible while fetching new page.
   });
+
+  useEffect(() => {
+    if (isInvoiceError && invoiceError) {
+      toast.error(invoiceError.message);
+    }
+  }, [isInvoiceError, invoiceError]);
 
   // --- Data Mutations using useMutation ---
 
@@ -166,7 +181,7 @@ export const useSubscriptionManagement = () => {
         );
       },
       // --- MODIFIED END ---
-      onError: (error) => toast.error(error.message),
+      onError: (error: Error) => toast.error(error.message),
     });
 
   const { mutateAsync: reactivateSubscription, isPending: isReactivating } =
@@ -193,13 +208,20 @@ export const useSubscriptionManagement = () => {
         );
       },
       // --- MODIFIED END ---
-      onError: (error) => toast.error(error.message),
+      onError: (error: Error) => toast.error(error.message),
     });
 
   const downloadInvoice = async (transactionId: string) => {
     try {
       const response = await fetch(`/api/invoice/${transactionId}`);
-      if (!response.ok) throw new Error("Failed to download invoice");
+      if (!response.ok) {
+        if (response.status === 429) {
+          const { message } = await response.json();
+          toast.error(message);
+          return;
+        }
+        throw new Error("Failed to download invoice");
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");

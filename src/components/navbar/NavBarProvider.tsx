@@ -17,6 +17,7 @@ const privateRoutes = [
   "/leaderboards",
   "/profile",
   "/customize",
+  "/subscription",
 ];
 
 export default function NavBarProvider({ children }: NavBarProviderProps) {

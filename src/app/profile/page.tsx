@@ -203,6 +203,13 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),
       });
+
+      if (response.status === 429) {
+        const { message } = await response.json();
+        toast.error(message);
+        return;
+      }
+
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "Failed to delete account");

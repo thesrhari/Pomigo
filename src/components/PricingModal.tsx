@@ -44,6 +44,12 @@ export const PricingModal = ({ isOpen, onClose }: PricingModalProps) => {
         body: JSON.stringify({ planType }),
       });
 
+      if (response.status === 429) {
+        const { message } = await response.json();
+        toast.error(message);
+        return;
+      }
+
       const data = await response.json();
 
       if (data.checkout_url) {
