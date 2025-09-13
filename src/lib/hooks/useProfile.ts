@@ -148,7 +148,7 @@ export function useProfile() {
       } else {
         throw new Error("Failed to get public URL for uploaded file");
       }
-    } catch (_: any) {
+    } catch {
       toast.error("Avatar Upload Failed. Please try again later.");
     } finally {
       setUploading(false);

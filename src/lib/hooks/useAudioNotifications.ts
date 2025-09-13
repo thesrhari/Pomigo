@@ -80,7 +80,7 @@ export const useAudioNotifications = (selectedSoundId?: number | null) => {
           resolve(audio);
         };
 
-        const onError = (e: Event) => {
+        const onError = () => {
           cleanup();
           reject(new Error(`Failed to load audio: ${filePath}`));
         };
@@ -270,7 +270,7 @@ export const useAudioNotifications = (selectedSoundId?: number | null) => {
               pause: () => {
                 try {
                   source.stop();
-                } catch (e) {
+                } catch {
                   // Source may already be stopped
                 }
               },

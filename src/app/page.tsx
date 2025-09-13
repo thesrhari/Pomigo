@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, FC, ReactNode } from "react";
+import React, { FC, ReactNode } from "react";
 import {
   ArrowRight,
   Timer,
@@ -22,7 +22,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client"; // Assuming this path is correct in your project
-import { User } from "@supabase/supabase-js"; // For type safety
 import { useUser } from "@/lib/hooks/useUser";
 
 // --- TYPE DEFINITIONS ---
