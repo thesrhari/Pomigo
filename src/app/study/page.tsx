@@ -78,7 +78,7 @@ export default function PomodoroPage() {
 
   // Update tab title with timer
   useEffect(() => {
-    const originalTitle = "Pomigo - Pomodoro Study App";
+    const originalTitle = "Pomigo - Study Tracker";
     if (timerRunning) {
       document.title = `${formatTime(timeLeft)} - ${
         currentSessionType === "study" ? `Studying ${currentSubject}` : "Break"

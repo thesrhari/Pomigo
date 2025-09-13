@@ -15,7 +15,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Pomigo - Pomodoro Study App",
+  title: "Pomigo - Study Tracker",
   description:
     "Your study companion with Pomodoro timer, task management, and social features",
 };

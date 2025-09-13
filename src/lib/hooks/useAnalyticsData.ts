@@ -218,6 +218,7 @@ export function useAnalyticsData(filter: DateFilter, contributionYear: number) {
 
   return {
     data: processedData,
+    allSessions: allSessions,
     loading: isLoading,
     error: error ? (error as Error).message : null,
     availableYears,
