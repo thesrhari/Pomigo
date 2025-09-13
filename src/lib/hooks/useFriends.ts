@@ -1,4 +1,4 @@
-// hooks/use-friends.ts
+// hooks/useFriends.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { FriendsService } from "@/lib/friends-service";

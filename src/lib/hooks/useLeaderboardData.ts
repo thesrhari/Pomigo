@@ -14,7 +14,9 @@ import {
   isWithinInterval,
 } from "date-fns";
 import { useUser } from "./useUser";
-import { User } from "@supabase/supabase-js";
+import { useFriends } from "./useFriends";
+import { useAnalyticsData } from "./useAnalyticsData";
+import { useProfile } from "./useProfile";
 
 // Define the shape of a friend's profile and their session data
 export interface LeaderboardFriend {
@@ -35,52 +37,38 @@ export interface LeaderboardFriend {
 
 const supabase = createClient();
 
-// The fetcher function now accepts the user object as a parameter.
-const fetchLeaderboardData = async (user: User) => {
-  if (!user) throw new Error("User not authenticated.");
+// The fetcher function now only fetches friend sessions data
+const fetchFriendSessionsData = async (friendIds: string[]) => {
+  if (friendIds.length === 0) return [];
 
-  // 1. Get friend relationships
-  const { data: friendRelationships, error: friendsError } = await supabase
-    .from("friend_relationships")
-    .select(
-      "requester_id, addressee_id, requester:profiles!requester_id(display_name, avatar_url), addressee:profiles!addressee_id(display_name, avatar_url)"
-    )
-    .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-    .eq("status", "accepted");
-  if (friendsError) throw friendsError;
-
-  const friendProfiles = (friendRelationships || []).map((fr) => {
-    const isRequester = fr.requester_id === user.id;
-    return {
-      id: isRequester ? fr.addressee_id : fr.requester_id,
-      profile: isRequester ? fr.addressee : fr.requester,
-    };
-  });
-
-  const friendIds = friendProfiles.map((f) => f.id);
-  const allUserIds = [...new Set([...friendIds, user.id])];
-
-  // 2. Fetch all sessions for user and friends
-  const { data: allSessions, error: sessionsError } = await supabase
+  // Fetch sessions for friends only
+  const { data: friendSessions, error: sessionsError } = await supabase
     .from("sessions")
     .select("user_id, session_type, duration, started_at")
-    .in("user_id", allUserIds);
+    .in("user_id", friendIds);
+
   if (sessionsError) throw sessionsError;
 
-  // 3. Fetch all necessary profiles
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, display_name, avatar_url")
-    .in("id", allUserIds);
-  if (profilesError) throw profilesError;
-  const profileMap = new Map(profiles.map((p) => [p.id, p]));
+  return friendSessions || [];
+};
 
-  // 4. Process the data
+// Helper function to process sessions data into metrics
+const processSessionsIntoMetrics = (
+  sessions: Array<{
+    user_id: string;
+    session_type: string;
+    duration: number;
+    started_at: string;
+  }>,
+  userIds: string[]
+) => {
   const userMetrics = new Map<
     string,
     Omit<LeaderboardFriend, "id" | "display_name" | "avatar_url">
   >();
-  allUserIds.forEach((id) => {
+
+  // Initialize metrics for all users
+  userIds.forEach((id) => {
     userMetrics.set(id, {
       isOnline: false,
       streak: 0,
@@ -106,7 +94,7 @@ const fetchLeaderboardData = async (user: User) => {
     year: { start: startOfYear(now), end: endOfYear(now) },
   };
 
-  (allSessions || []).forEach((session) => {
+  sessions.forEach((session) => {
     const metrics = userMetrics.get(session.user_id);
     if (!metrics || !session.duration) return;
 
@@ -136,42 +124,129 @@ const fetchLeaderboardData = async (user: User) => {
     }
   });
 
-  // Calculate streaks and finalize data structure
-  const processedData: LeaderboardFriend[] = allUserIds.map((id) => {
-    const metrics = userMetrics.get(id)!;
-    const userStudySessions = (allSessions || []).filter(
-      (s) => s.user_id === id && s.session_type === "study"
+  // Calculate streaks for each user
+  userIds.forEach((userId) => {
+    const userStudySessions = sessions.filter(
+      (s) => s.user_id === userId && s.session_type === "study"
     );
+    const metrics = userMetrics.get(userId)!;
     metrics.streak = calculateStreaks(userStudySessions).currentStreak;
-
-    const profile = profileMap.get(id);
-    return {
-      id,
-      display_name: profile?.display_name || "Friend",
-      avatar_url: profile?.avatar_url || "🧑‍💻",
-      ...metrics,
-    };
   });
 
-  const currentUserData = processedData.find((p) => p.id === user.id) || null;
-  const friends = processedData.filter((p) => p.id !== user.id);
-
-  return { friends, currentUserData };
+  return userMetrics;
 };
 
 export function useLeaderboardData() {
   const { user } = useUser();
+  const { profile } = useProfile();
+  const { friends, isLoading: isLoadingFriends } = useFriends();
+
+  // Get current user's analytics data (includes all sessions)
+  const { allSessions: currentUserSessions, loading: isLoadingAnalytics } =
+    useAnalyticsData(
+      { type: "all-time" }, // We need all-time data for leaderboard calculations
+      new Date().getFullYear()
+    );
+
+  // Extract friend IDs
+  const friendIds = friends.map((friend) => friend.id);
+
+  // Fetch friend sessions data
+  const {
+    data: friendSessions,
+    error: friendSessionsError,
+    isLoading: isLoadingFriendSessions,
+  } = useQuery({
+    queryKey: ["friendSessions", friendIds],
+    queryFn: () => fetchFriendSessionsData(friendIds),
+    enabled: !!user && friendIds.length > 0 && !isLoadingFriends,
+  });
+
   const { data, error, isLoading } = useQuery({
-    queryKey: ["leaderboardData", user?.id],
-    queryFn: () => fetchLeaderboardData(user!),
-    enabled: !!user, // The query will not run until the user is fetched
+    queryKey: [
+      "leaderboardData",
+      user?.id,
+      friendIds,
+      currentUserSessions?.length,
+      friendSessions?.length,
+    ],
+    queryFn: async () => {
+      if (!user || !currentUserSessions || !friendSessions) {
+        throw new Error("Missing required data");
+      }
+
+      // Convert current user sessions to the expected format
+      const currentUserSessionsFormatted = currentUserSessions.map(
+        (session) => ({
+          user_id: user.id,
+          session_type: session.session_type,
+          duration: session.duration,
+          started_at: session.started_at,
+        })
+      );
+
+      // Combine all sessions
+      const allSessions = [...currentUserSessionsFormatted, ...friendSessions];
+      const allUserIds = [user.id, ...friendIds];
+
+      // Process sessions into metrics
+      const userMetrics = processSessionsIntoMetrics(allSessions, allUserIds);
+
+      // Create profiles map from friends data and current user
+      const profilesMap = new Map();
+
+      // Add current user profile (assuming it exists in user object)
+      profilesMap.set(user.id, {
+        id: user.id,
+        display_name: profile?.display_name || user.email || "You",
+        avatar_url: profile?.avatar_url || "🧑‍💻",
+      });
+
+      // Add friend profiles
+      friends.forEach((friend) => {
+        profilesMap.set(friend.id, {
+          id: friend.id,
+          display_name: friend.name,
+          avatar_url: friend.avatar_url,
+        });
+      });
+
+      // Create final processed data
+      const processedData: LeaderboardFriend[] = allUserIds.map((id) => {
+        const metrics = userMetrics.get(id)!;
+        const profile = profilesMap.get(id);
+
+        return {
+          id,
+          display_name: profile?.display_name || "Friend",
+          avatar_url: profile?.avatar_url || "🧑‍💻",
+          ...metrics,
+        };
+      });
+
+      const currentUserData =
+        processedData.find((p) => p.id === user.id) || null;
+      const friendsData = processedData.filter((p) => p.id !== user.id);
+
+      return { friends: friendsData, currentUserData };
+    },
+    enabled:
+      !!user &&
+      !!currentUserSessions &&
+      !!friendSessions &&
+      !isLoadingFriends &&
+      !isLoadingAnalytics,
   });
 
   return {
     friends: data?.friends || [],
     currentUserData: data?.currentUserData || null,
-    loading: isLoading,
-    error: error?.message || null,
+    loading:
+      isLoading ||
+      isLoadingFriends ||
+      isLoadingAnalytics ||
+      isLoadingFriendSessions,
+    error: error?.message || friendSessionsError?.message || null,
   };
 }
 
